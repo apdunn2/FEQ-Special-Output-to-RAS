@@ -56,25 +56,14 @@ def parse_spec_output(spec_output_path):
     return spec_output_df
 
 
-class RASFlowFileWriter:
-    def __init__(self, node_table_filepath, title, output_file_path, timestep):
+class RASSteadyFlowFileWriter:
+    def __init__(self, constituent_df, title, output_file_path, timestep):
         self.reaches = []
         self.lines = []
         self.program_version = "5.03"
         self.title = title
         self.output_file_path = output_file_path
-        self._node_table = self._load_node_table(node_table_filepath)
-        self.timestep = timestep
-
-    def add_reach(self, FEQSpecialOutput):
-        self.reaches.append(FEQSpecialOutput)
-
-    def _load_node_table(self, node_table_filepath):
-        node_table = pd.read_csv(node_table_filepath)
-        node_table = node_table.set_index('Node')
-        node_table['XS'] = node_table['XS'].astype(str)
-        node_table['River & Reach'] = node_table['River'] + ',' + node_table['Reach']
-        return node_table
+        self._constituent_df = constituent_df
 
     def get_program_version(self):
         return self.program_version
@@ -82,59 +71,67 @@ class RASFlowFileWriter:
     def get_title(self):
         return self.title
 
-    def filter_reach_timesteps(self):
-        for reach in self.reaches:
-            reach.filter_constituent_df_timestep(self.timestep)
+    def get_number_of_profiles(self):
+        return self._constituent_df.shape[0]
 
-    def write_header_information(self):
-        self.lines.append("Flow Title={0}\n".format(self.get_title()))
-        self.lines.append("Program Version={0}\n".format(self.program_version))
-        self.lines.append("Number of Profiles= {0}\n".format(self.reaches[0].get_number_of_profiles()))
-        self.lines.append("Profile Names={0}\n".format(self.reaches[0].get_profile_list()))
+    def get_profile_list(self):
+        profiles = self._constituent_df.index.strftime("%Y-%m-%d %H:%M:%S").tolist()
+        profiles = ','.join(profiles)
+        return profiles
 
-    def write_reach_and_flows(self):
-        river_and_reach_groups = self.group_by_river_and_reach()
-        for reach in self.reaches:
-            river_and_reach = reach.get_river_and_reach_name()
-            upstream_xs = river_and_reach_groups.get_group(river_and_reach)['XS'].max()
-            self.lines.append("River Rch & RM={0: <27},{1}\n{2}\n".format(
-                              river_and_reach, upstream_xs, reach.create_dummy_flows()))
+    def create_dummy_flows(self):
+        dummy_flows = ""
+        count = 1
+        for i in range(self.get_number_of_profiles()):
+            dummy_flows += "     100"
+            if count % 10 == 0:
+                dummy_flows += "\n"
+            count += 1
+        return dummy_flows
 
-    def write_reach_boundary_conditions(self):
-        for reach_index in range(len(self.reaches)):
-            reach = self.reaches[reach_index]
-            self.lines.append("Boundary for River Rch & Prof#={0: <27}, "
-                              "{1}\nUp Type= 0\nDn Type= 3\nDn Slope=0.001\n".format(
-                              reach.get_river_and_reach_name(), reach_index + 1))
+    def write_header_information(self, lines):
+        lines.append("Flow Title={0}\n".format(self.get_title()))
+        lines.append("Program Version={0}\n".format(self.program_version))
+        lines.append("Number of Profiles= {0}\n".format(self.get_number_of_profiles()))
+        lines.append("Profile Names={0}\n".format(self.get_profile_list()))
 
-    def group_by_river_and_reach(self):
-        return self._node_table.groupby('River & Reach')
+    def write_reach_and_flows(self, lines):
+        for river in self._constituent_df.columns.get_level_values(0):
+            for reach in self._constituent_df.columns.get_level_values(1):
+                river_and_reach = river + ',' + reach
+                upstream_xs = self._constituent_df[river][reach].columns.max()
+                lines.append("River Rch & RM={0: <27},{1}\n{2}\n".format(
+                                  river_and_reach, upstream_xs, self.create_dummy_flows()))
 
-    def write_water_surface_elevations(self):
-        node_table_groupby = self.group_by_river_and_reach()
-        for reach in self.reaches:
-            river_and_reach = reach.get_river_and_reach_name()
-            river_and_reach_node_table = node_table_groupby.get_group(river_and_reach)
-            for profile_index in range(reach.get_number_of_profiles()):
-                for node in reach.get_FEQ_node_list():
-                    RAS_xs = river_and_reach_node_table['XS'][node]
-                    water_surface_elevation = reach.get_water_surface_elevation(node, profile_index)
-                    river_name = reach.get_river_name()
-                    reach_name = reach.get_reach_name()
-                    self.lines.append("Set Internal Change={0: <16},{1: <16},{2: <8}".format(river_name, reach_name, RAS_xs))
-                    self.lines.append(", {0} , 3 , {1}\n".format(profile_index + 1, water_surface_elevation))
+    def write_reach_boundary_conditions(self, lines):
+        for river in self._constituent_df.columns.get_level_values(0):
+            for reach in self._constituent_df.columns.get_level_values(1):
+                river_and_reach = river + ',' + reach
+                lines.append("Boundary for River Rch & Prof#={0: <27}, "
+                                  "{1}\nUp Type= 0\nDn Type= 3\nDn Slope=0.001\n".format(
+                                  river_and_reach, 1))
 
-    def write_lines_to_flow_file(self):
+    def write_water_surface_elevations(self, lines):
+        for river in self._constituent_df.columns.get_level_values(0):
+            for reach in self._constituent_df[river].columns.get_level_values(0):
+                for cross_section in self._constituent_df[river][reach].columns.get_level_values(0):
+                    for profile_index in range(self.get_number_of_profiles()):
+                            water_surface_elevation = self._constituent_df[river][reach][cross_section][profile_index]
+                            lines.append("Set Internal Change={0: <16},"
+                                              "{1: <16},{2: <8}".format(river, reach, cross_section))
+                            lines.append(", {0} , 3 , {1}\n".format(profile_index + 1, water_surface_elevation))
+
+    def write_lines_to_flow_file(self, lines):
         with open(self.output_file_path, "w+") as f:
-            f.writelines(self.lines)
+            f.writelines(lines)
 
     def run_write_methods(self):
-        self.filter_reach_timesteps()
-        self.write_header_information()
-        self.write_reach_and_flows()
-        self.write_reach_boundary_conditions()
-        self.write_water_surface_elevations()
-        self.write_lines_to_flow_file()
+        lines = []
+        self.write_header_information(lines)
+        self.write_reach_and_flows(lines)
+        self.write_reach_boundary_conditions(lines)
+        self.write_water_surface_elevations(lines)
+        self.write_lines_to_flow_file(lines)
 
 
 class FEQSpecialOutput:
@@ -161,29 +158,17 @@ class FEQSpecialOutput:
     def get_river_and_reach_name(self):
         return self.get_river_name() + ',' + self.get_reach_name()
 
-    def get_profile_list(self):
-        profiles = self._constituent_df.index.strftime("%Y-%m-%d %H:%M:%S").tolist()
-        profiles = ','.join(profiles)
-        return profiles
+
 
     def get_FEQ_node_list(self):
         return list(self._constituent_df.columns)
 
-    def get_number_of_profiles(self):
-        return self._constituent_df.shape[0]
+
 
     def get_water_surface_elevation(self, node, profile_index):
         return self._constituent_df[node][profile_index]
 
-    def create_dummy_flows(self):
-        dummy_flows = ""
-        count = 1
-        for i in range(self.get_number_of_profiles()):
-            dummy_flows += "     100"
-            if count % 10 == 0:
-                dummy_flows += "\n"
-            count += 1
-        return dummy_flows
+
 
 
 import os
@@ -194,7 +179,7 @@ data_file_path = os.path.join(data_directory, data_file_name)
 node_table_filepath = r"D:\Python\FEQ to Ras\node_table.csv"
 
 MainStem = FEQSpecialOutput(data_file_path, 'Elev', 'WestBranch', 'MainStem')
-FlowDemo = RASFlowFileWriter(node_table_filepath, 'June22', 'D:\Dupage\WBMainStem\June22.f34', '1000H')
+FlowDemo = RASSteadyFlowFileWriter(node_table_filepath, 'June22', 'D:\Dupage\WBMainStem\June22.f34', '1000H')
 FlowDemo.add_reach(MainStem)
 FlowDemo.run_write_methods()
 
