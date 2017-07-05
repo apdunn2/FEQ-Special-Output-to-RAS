@@ -43,7 +43,12 @@ class FEQSpecialOutput:
         new_index_order = ['river', 'reach'] + old_index_order
         transposed_special_output_df.index = transposed_special_output_df.index.reorder_levels(new_index_order)
 
-        return transposed_special_output_df.transpose()
+        new_special_output_df = transposed_special_output_df.transpose()
+        index_type = special_output_df.index.dtype
+        new_index = new_special_output_df.index.astype(index_type)
+        new_special_output_df.index = new_index
+
+        return new_special_output_df
 
     @staticmethod
     def _parse_special_output(spec_output_path):
@@ -70,8 +75,7 @@ class FEQSpecialOutput:
                 try:
 
                     hour = float(split_line[3])
-                    date_time_stamp = pd.to_datetime(date_string, format='%Y,%m,%d') \
-                                      + pd.Timedelta(hour, unit='h')
+                    date_time_stamp = pd.to_datetime(date_string, format='%Y,%m,%d') + pd.Timedelta(hour, unit='h')
                     date_time_list.append(date_time_stamp)
 
                     first_value_column = 4

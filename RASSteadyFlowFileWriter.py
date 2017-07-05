@@ -9,6 +9,16 @@ class RASSteadyFlowFileWriter:
         self.output_file_path = output_file_path
         self._constituent_df = constituent_df
 
+    def _get_unique_river_and_reach(self):
+        """
+
+        :return:
+        """
+
+        river_and_reach_columns = self._constituent_df.columns.droplevel(2)
+        unique_combinations = river_and_reach_columns.unique()
+        return unique_combinations.values
+
     def get_program_version(self):
         return self.program_version
 
@@ -40,30 +50,27 @@ class RASSteadyFlowFileWriter:
         lines.append("Profile Names={0}\n".format(self.get_profile_list()))
 
     def write_reach_and_flows(self, lines):
-        for river in self._constituent_df.columns.get_level_values(0):
-            for reach in self._constituent_df.columns.get_level_values(1):
-                river_and_reach = river + ',' + reach
-                upstream_xs = self._constituent_df[river][reach].columns.max()
-                lines.append("River Rch & RM={0: <27},{1}\n{2}\n".format(
-                                  river_and_reach, upstream_xs, self.create_dummy_flows()))
+        unique_river_and_reach = self._get_unique_river_and_reach()
+        for river, reach in unique_river_and_reach:
+            river_and_reach = river + ',' + reach
+            upstream_xs = self._constituent_df[river][reach].columns.max()
+            lines.append("River Rch & RM={0: <27},{1}\n{2}\n".format(
+                              river_and_reach, upstream_xs, self.create_dummy_flows()))
 
     def write_reach_boundary_conditions(self, lines):
-        for river in self._constituent_df.columns.get_level_values(0):
-            for reach in self._constituent_df.columns.get_level_values(1):
-                river_and_reach = river + ',' + reach
-                lines.append("Boundary for River Rch & Prof#={0: <27}, "
-                                  "{1}\nUp Type= 0\nDn Type= 3\nDn Slope=0.001\n".format(
-                                  river_and_reach, 1))
+        unique_river_and_reach = self._get_unique_river_and_reach()
+        for river, reach in unique_river_and_reach:
+            river_and_reach = river + ',' + reach
+            lines.append("Boundary for River Rch & Prof#={0: <27}, "
+                              "{1}\nUp Type= 0\nDn Type= 3\nDn Slope=0.001\n".format(river_and_reach, 1))
 
     def write_water_surface_elevations(self, lines):
-        for river in self._constituent_df.columns.get_level_values(0):
-            for reach in self._constituent_df[river].columns.get_level_values(0):
-                for cross_section in self._constituent_df[river][reach].columns.get_level_values(0):
-                    for profile_index in range(self.get_number_of_profiles()):
-                            water_surface_elevation = self._constituent_df[river][reach][cross_section][profile_index]
-                            lines.append("Set Internal Change={0: <16},"
-                                              "{1: <16},{2: <8}".format(river, reach, cross_section))
-                            lines.append(", {0} , 3 , {1}\n".format(profile_index + 1, water_surface_elevation))
+        for river, reach, cross_section in self._constituent_df.columns.values:
+            for profile_index in range(self.get_number_of_profiles()):
+                    water_surface_elevation = self._constituent_df.ix[profile_index, (river, reach, cross_section)]
+                    lines.append("Set Internal Change={0: <16},"
+                                      "{1: <16},{2: <8}".format(river, reach, cross_section))
+                    lines.append(", {0} , 3 , {1}\n".format(profile_index + 1, water_surface_elevation))
 
     def write_lines_to_flow_file(self, lines):
         with open(self.output_file_path, "w+") as f:

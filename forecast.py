@@ -5,8 +5,7 @@ from RASSteadyFlowFileWriter import RASSteadyFlowFileWriter
 
 class Forecast:
     def __init__(self, elevation_df):
-        # self._node_table = self._load_node_table(node_path)
-        self._elevation_df = self._combine_dataframes(elevation_df)
+        self._elevation_df = elevation_df
 
     @staticmethod
     def _combine_dataframes(args):
@@ -33,7 +32,7 @@ class Forecast:
 
     def run_ras_forecast(self, node_table_path):
         title = datetime.date.today().strftime("%B %d, %Y")
-        output_file_path = title + 'f.40'
+        output_file_path = title + 'f.01'
         node_table = self.load_node_table(node_table_path)
         self.node_to_cross_section(node_table)
         steady_flow_forecast = RASSteadyFlowFileWriter(self._elevation_df, title, output_file_path)
@@ -41,5 +40,25 @@ class Forecast:
 
 
 if __name__ == '__main__':
+    import os
+    import feq
+
+    data_directory = 'data'
+    data_file_name = 'WBuncutx.wsq'
+    data_file_path = os.path.join(data_directory, data_file_name)
+
+    river = 'West Branch'
+    reach = 'Main'
+
+    special_output = feq.FEQSpecialOutput(r"data\WBuncutx.wsq", river, reach)
+
+    constituent = 'Elev'
+
+    elevation_df = special_output.get_constituent(constituent)
+    elevation_df = elevation_df[-4:]
+
     node_path = r"data\node_table.csv"
+
+    forecaster = Forecast(elevation_df)
     forecaster.run_ras_forecast(node_path)
+
