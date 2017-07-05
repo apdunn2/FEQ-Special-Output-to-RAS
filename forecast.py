@@ -1,19 +1,19 @@
-import numpy as np
 import datetime
 import pandas as pd
 from RASSteadyFlowFileWriter import RASSteadyFlowFileWriter
-from feq import FEQSpecialOutput
 
 
-class forecast:
-    def __init__(self, *args):
+class Forecast:
+    def __init__(self, elevation_df):
         # self._node_table = self._load_node_table(node_path)
-        self._elevation_df = self._combine_dataframes(args)
+        self._elevation_df = self._combine_dataframes(elevation_df)
 
-    def _combine_dataframes(self, args):
+    @staticmethod
+    def _combine_dataframes(args):
         return pd.concat(args, axis=1)
 
-    def load_node_table(self, node_table_path):
+    @staticmethod
+    def load_node_table(node_table_path):
         node_table = pd.read_csv(node_table_path)
         node_table['Node'] = node_table['Node'].astype(str)
         node_table['XS'] = node_table['XS'].astype(str)
@@ -31,7 +31,7 @@ class forecast:
                     cross_section = reach_df['XS'][index]
                     self._elevation_df.rename(columns={node: cross_section}, level=2, inplace=True)
 
-    def run_RAS_forecast(self, node_table_path):
+    def run_ras_forecast(self, node_table_path):
         title = datetime.date.today().strftime("%B %d, %Y")
         output_file_path = title + 'f.40'
         node_table = self.load_node_table(node_table_path)
@@ -40,7 +40,6 @@ class forecast:
         steady_flow_forecast.run_write_methods()
 
 
-
-node_path = r"D:\Python\FEQ to Ras\node_table2.csv"
-forecaster = forecast(main_resample, creek_resample)
-forecaster.run_RAS_forecast(node_path)
+if __name__ == '__main__':
+    node_path = r"data\node_table.csv"
+    forecaster.run_ras_forecast(node_path)
