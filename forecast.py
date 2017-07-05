@@ -32,7 +32,7 @@ class Forecast:
 
     def run_ras_forecast(self, node_table_path):
         title = datetime.date.today().strftime("%B %d, %Y")
-        output_file_path = title + 'f.01'
+        output_file_path = title + '.f01'
         node_table = self.load_node_table(node_table_path)
         self.node_to_cross_section(node_table)
         steady_flow_forecast = RASSteadyFlowFileWriter(self._elevation_df, title, output_file_path)
@@ -47,15 +47,15 @@ if __name__ == '__main__':
     data_file_name = 'WBuncutx.wsq'
     data_file_path = os.path.join(data_directory, data_file_name)
 
-    river = 'West Branch'
-    reach = 'Main'
+    river = 'WestBranch'
+    reach = 'MainStem'
 
     special_output = feq.FEQSpecialOutput(r"data\WBuncutx.wsq", river, reach)
 
     constituent = 'Elev'
 
     elevation_df = special_output.get_constituent(constituent)
-    elevation_df = elevation_df[-4:]
+    elevation_df = elevation_df['2017-04-29 19:00:00':'2017-04-30 19:00:00']
 
     node_path = r"data\node_table.csv"
 

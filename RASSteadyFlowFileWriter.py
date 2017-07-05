@@ -53,7 +53,9 @@ class RASSteadyFlowFileWriter:
         unique_river_and_reach = self._get_unique_river_and_reach()
         for river, reach in unique_river_and_reach:
             river_and_reach = river + ',' + reach
-            upstream_xs = self._constituent_df[river][reach].columns.max()
+            cross_sections = self._constituent_df[river][reach].columns.values.astype('float')
+            max_index = cross_sections.argmax()
+            upstream_xs = self._constituent_df[river][reach].columns[max_index]
             lines.append("River Rch & RM={0: <27},{1}\n{2}\n".format(
                               river_and_reach, upstream_xs, self.create_dummy_flows()))
 

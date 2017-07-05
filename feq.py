@@ -129,7 +129,7 @@ if __name__ == "__main__":
     data_file_name = 'WBuncutx.wsq'
     data_file_path = os.path.join(data_directory, data_file_name)
 
-    river = 'West Branch'
+    river = 'WestBranch'
     reach = 'Main'
 
     special_output = FEQSpecialOutput(r"data\WBuncutx.wsq", river, reach)
