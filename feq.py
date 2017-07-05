@@ -128,7 +128,7 @@ if __name__ == "__main__":
     river = 'West Branch'
     reach = 'Main'
 
-    special_output = FEQSpecialOutput(r"D:\Python\FEQ Special Output to RAS\rasobserved\data\WBuncutx.wsq", river, reach)
+    special_output = FEQSpecialOutput(r"data\WBuncutx.wsq", river, reach)
 
     constituent = 'Elev'
 
