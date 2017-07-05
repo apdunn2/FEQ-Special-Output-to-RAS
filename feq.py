@@ -113,27 +113,26 @@ class FEQSpecialOutput:
 
         constituent_level = self._special_output_df.columns.names.index('value')
 
-        if time_step is None:
+        # get a cross section of the constituent values
+        constituent_df = self._special_output_df.xs(constituent_name, axis=1, level=constituent_level)
 
-            constituent_df = self._special_output_df.xs(constituent_name, axis=1, level=constituent_level)
+        # if a time step is specified
+        if time_step is not None:
 
-        # TODO handle interpolation
+            # get a series of the frequency requested
+            start_date = constituent_df.index[0].date()
+            end_date = constituent_df.index[-1]
+            interval_index = pd.date_range(start_date, end_date, freq=time_step)
+
+            # get indices not included in the constituent DataFrame and create an empty DataFrame with the
+            # missing indices
+            time_step_difference = interval_index.difference(constituent_df.index)
+            empty_df = pd.DataFrame(index=time_step_difference)
+
+            # add the empty DataFrame to the constituent DataFrame, sort, and resample as frequency
+            constituent_df = constituent_df.append(empty_df)
+            constituent_df = constituent_df.sort_index()
+            constituent_df = constituent_df.resample(time_step).asfreq()
 
         return constituent_df
 
-if __name__ == "__main__":
-
-    import os
-
-    data_directory = '../rasobserved/data'
-    data_file_name = 'WBuncutx.wsq'
-    data_file_path = os.path.join(data_directory, data_file_name)
-
-    river = 'West Branch'
-    reach = 'Main'
-
-    special_output = FEQSpecialOutput(r"data\WBuncutx.wsq", river, reach)
-
-    constituent = 'Elev'
-
-    elevation_df = special_output.get_constituent(constituent)
