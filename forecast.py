@@ -21,14 +21,12 @@ class Forecast:
 
     def node_to_cross_section(self, node_table):
         self._elevation_df.columns.names = ['river', 'reach', 'cross section']
-        for river in node_table['River'].unique():
-            for reach in node_table['Reach'].unique():
-                river_df = node_table[node_table['River'] == river]
-                reach_df = river_df[river_df['Reach'] == reach]
-                for index in reach_df.index:
-                    node = reach_df['Node'][index]
-                    cross_section = reach_df['XS'][index]
-                    self._elevation_df.rename(columns={node: cross_section}, level=2, inplace=True)
+        unique_river_and_reach = self._get_unique_river_and_reach()
+        for river, reach in unique_river_and_reach:
+            river_df = node_table[node_table['River'] == river]
+            reach_df = river_df[river_df['Reach'] == reach]
+            node_xs_dict = dict(zip(reach_df['Node'], reach_df['XS']))
+            self._elevation_df.rename(columns=node_xs_dict, level=2, inplace=True)
 
     def run_ras_forecast(self, node_table_path):
         title = datetime.date.today().strftime("%B %d, %Y")
