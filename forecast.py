@@ -11,6 +11,16 @@ class Forecast:
     def _combine_dataframes(args):
         return pd.concat(args, axis=1)
 
+    def _get_unique_river_and_reach(self):
+        """
+
+        :return:
+        """
+
+        river_and_reach_columns = self._elevation_df.columns.droplevel(2)
+        unique_combinations = river_and_reach_columns.unique()
+        return unique_combinations.values
+
     @staticmethod
     def load_node_table(node_table_path):
         node_table = pd.read_csv(node_table_path)
