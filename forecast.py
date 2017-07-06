@@ -11,6 +11,16 @@ class Forecast:
     def _combine_dataframes(args):
         return pd.concat(args, axis=1)
 
+    def _get_unique_river_and_reach(self):
+        """
+
+        :return:
+        """
+
+        river_and_reach_columns = self._elevation_df.columns.droplevel(2)
+        unique_combinations = river_and_reach_columns.unique()
+        return unique_combinations.values
+
     @staticmethod
     def load_node_table(node_table_path):
         node_table = pd.read_csv(node_table_path)
@@ -21,18 +31,16 @@ class Forecast:
 
     def node_to_cross_section(self, node_table):
         self._elevation_df.columns.names = ['river', 'reach', 'cross section']
-        for river in node_table['River'].unique():
-            for reach in node_table['Reach'].unique():
-                river_df = node_table[node_table['River'] == river]
-                reach_df = river_df[river_df['Reach'] == reach]
-                for index in reach_df.index:
-                    node = reach_df['Node'][index]
-                    cross_section = reach_df['XS'][index]
-                    self._elevation_df.rename(columns={node: cross_section}, level=2, inplace=True)
+        unique_river_and_reach = self._get_unique_river_and_reach()
+        for river, reach in unique_river_and_reach:
+            river_df = node_table[(node_table['River'] == river)]
+            reach_df = river_df[river_df['Reach'] == reach]
+            node_xs_dict = dict(zip(reach_df['Node'], reach_df['XS']))
+            self._elevation_df.rename(columns=node_xs_dict, level=2, inplace=True)
 
     def run_ras_forecast(self, node_table_path):
         title = datetime.date.today().strftime("%B %d, %Y")
-        output_file_path = title + 'f.01'
+        output_file_path = title + '.f01'
         node_table = self.load_node_table(node_table_path)
         self.node_to_cross_section(node_table)
         steady_flow_forecast = RASSteadyFlowFileWriter(self._elevation_df, title, output_file_path)
@@ -47,8 +55,8 @@ if __name__ == '__main__':
     data_file_name = 'WBuncutx.wsq'
     data_file_path = os.path.join(data_directory, data_file_name)
 
-    river = 'West Branch'
-    reach = 'Main'
+    river = 'WestBranch'
+    reach = 'MainStem'
 
     special_output = feq.FEQSpecialOutput(r"data\WBuncutx.wsq", river, reach)
 
