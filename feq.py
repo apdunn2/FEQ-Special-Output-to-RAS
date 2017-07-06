@@ -4,30 +4,24 @@ import pandas as pd
 
 class FEQSpecialOutput:
 
-    def __init__(self, spec_output_file_path, river_name, reach_name):
+    def __init__(self, special_output_df):
+        """Do not use __init__() directly. Use FEQSpecialOutput.read_special_output_file() to create an instance from
+         an FEQ special output file.
+
+        :param special_output_df:
         """
 
-        :param spec_output_file_path:
-        :param river_name:
-        :param reach_name:
-        """
-
-        self._river_name = river_name
-        self._reach_name = reach_name
-        self._special_output_df = self._create_special_output_df(spec_output_file_path, river_name, reach_name)
+        self._special_output_df = special_output_df
 
     @classmethod
-    def _create_special_output_df(cls, spec_output_file_path, river_name, reach_name):
+    def _create_special_output_df(cls, special_output_df, river_name, reach_name):
         """
 
-        :param spec_output_file_path:
+        :param special_output_df:
         :param river_name:
         :param reach_name:
         :return:
         """
-
-        # load the special output file into a DataFrame
-        special_output_df = cls._parse_special_output(spec_output_file_path)
 
         # add the river and reach names as outer levels of the columns index
         transposed_special_output_df = special_output_df.transpose()
@@ -103,10 +97,23 @@ class FEQSpecialOutput:
 
         return spec_output_df
 
-    def get_constituent(self, constituent_name, time_step=None):
+    def add_special_output(self, other):
+        """
+
+        :param other:
+        :return:
+        """
+
+        new_special_output_df = pd.concat([self._special_output_df, other.get_data()], axis=1)
+
+        return type(self)(new_special_output_df)
+
+    def get_constituent(self, constituent_name, start_date=None, end_date=None, time_step=None):
         """
 
         :param constituent_name:
+        :param start_date:
+        :param end_date:
         :param time_step:
         :return:
         """
@@ -120,19 +127,62 @@ class FEQSpecialOutput:
         if time_step is not None:
 
             # get a series of the frequency requested
-            start_date = constituent_df.index[0].date()
-            end_date = constituent_df.index[-1]
-            interval_index = pd.date_range(start_date, end_date, freq=time_step)
+            index_start_date = constituent_df.index[0].date()
+            index_end_date = constituent_df.index[-1]
+            interval_index = pd.date_range(index_start_date, index_end_date, freq=time_step)
 
             # get indices not included in the constituent DataFrame and create an empty DataFrame with the
             # missing indices
             time_step_difference = interval_index.difference(constituent_df.index)
             empty_df = pd.DataFrame(index=time_step_difference)
 
-            # add the empty DataFrame to the constituent DataFrame, sort, and resample as frequency
+            # add the empty DataFrame to the constituent DataFrame, sort, resample as frequency, and drop null values
             constituent_df = constituent_df.append(empty_df)
             constituent_df = constituent_df.sort_index()
             constituent_df = constituent_df.resample(time_step).asfreq()
+            constituent_df = constituent_df.dropna(how='all')
 
-        return constituent_df
+        return constituent_df.truncate(start_date, end_date)
 
+    def get_data(self):
+        """
+
+        :return:
+        """
+
+        return self._special_output_df.copy(deep=True)
+
+    def get_max_constituent_value(self, constituent_name, start_date=None, end_date=None):
+        """
+
+        :param constituent_name:
+        :param start_date:
+        :param end_date:
+        :return:
+        """
+
+        constituent_df = self.get_constituent(constituent_name, start_date, end_date)
+
+        max_constituent_values = pd.DataFrame(constituent_df.max())
+
+        max_constituent_values = max_constituent_values.transpose()
+
+        max_constituent_values.index = ['Maximum_' + constituent_name]
+
+        return max_constituent_values
+
+    @classmethod
+    def read_special_output_file(cls, spec_output_file_path, river_name, reach_name):
+        """
+
+        :param spec_output_file_path:
+        :param river_name:
+        :param reach_name:
+        :return:
+        """
+
+        # load the special output file into a DataFrame
+        from_special_output = cls._parse_special_output(spec_output_file_path)
+        special_output_df = cls._create_special_output_df(from_special_output, river_name, reach_name)
+
+        return cls(special_output_df)
