@@ -136,9 +136,11 @@ class FEQSpecialOutput:
             time_step_difference = interval_index.difference(constituent_df.index)
             empty_df = pd.DataFrame(index=time_step_difference)
 
-            # add the empty DataFrame to the constituent DataFrame, sort, resample as frequency, and drop null values
+            # add the empty DataFrame to the constituent DataFrame, sort, interpolate, resample as frequency,
+            # and drop null values
             constituent_df = constituent_df.append(empty_df)
-            constituent_df = constituent_df.sort_index()
+            constituent_df.sort_index(inplace=True)
+            constituent_df.interpolate('time', inplace=True)
             constituent_df = constituent_df.resample(time_step).asfreq()
             constituent_df = constituent_df.dropna(how='all')
 
