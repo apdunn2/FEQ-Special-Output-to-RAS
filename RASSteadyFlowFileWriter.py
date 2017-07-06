@@ -29,9 +29,16 @@ class RASSteadyFlowFileWriter:
         return self._constituent_df.shape[0]
 
     def get_profile_list(self):
-        profiles = self._constituent_df.index.strftime("%Y-%m-%d %H:%M:%S").tolist()
-        profiles = ','.join(profiles)
-        return profiles
+        try:
+            profiles = self._constituent_df.index.strftime("%Y-%m-%d %H:%M:%S").tolist()
+            profiles = ','.join(profiles)
+            return profiles
+        except AttributeError:
+            profiles = self._constituent_df.index.tolist()
+            profiles = ','.join(profiles)
+            return profiles
+
+
 
     def create_dummy_flows(self):
         dummy_flows = ""
@@ -53,23 +60,25 @@ class RASSteadyFlowFileWriter:
         unique_river_and_reach = self._get_unique_river_and_reach()
         for river, reach in unique_river_and_reach:
             river_and_reach = river + ',' + reach
-            upstream_xs = self._constituent_df[river][reach].columns.max()
+            cross_sections = self._constituent_df[river][reach].columns.values.astype('float')
+            max_index = cross_sections.argmax()
+            upstream_xs = self._constituent_df[river][reach].columns[max_index]
             lines.append("River Rch & RM={0: <27},{1}\n{2}\n".format(
-                              river_and_reach, upstream_xs, self.create_dummy_flows()))
+                         river_and_reach, upstream_xs, self.create_dummy_flows()))
 
     def write_reach_boundary_conditions(self, lines):
         unique_river_and_reach = self._get_unique_river_and_reach()
         for river, reach in unique_river_and_reach:
             river_and_reach = river + ',' + reach
             lines.append("Boundary for River Rch & Prof#={0: <27}, "
-                              "{1}\nUp Type= 0\nDn Type= 3\nDn Slope=0.001\n".format(river_and_reach, 1))
+                         "{1}\nUp Type= 0\nDn Type= 3\nDn Slope=0.001\n".format(river_and_reach, 1))
 
     def write_water_surface_elevations(self, lines):
         for river, reach, cross_section in self._constituent_df.columns.values:
             for profile_index in range(self.get_number_of_profiles()):
                     water_surface_elevation = self._constituent_df.ix[profile_index, (river, reach, cross_section)]
                     lines.append("Set Internal Change={0: <16},"
-                                      "{1: <16},{2: <8}".format(river, reach, cross_section))
+                                 "{1: <16},{2: <8}".format(river, reach, cross_section))
                     lines.append(", {0} , 3 , {1}\n".format(profile_index + 1, water_surface_elevation))
 
     def write_lines_to_flow_file(self, lines):
