@@ -29,6 +29,14 @@ class Forecast:
         node_table['River & Reach'] = node_table['River'] + ',' + node_table['Reach']
         return node_table
 
+    def node_datum_change(self, node_table):
+        for i in range(node_table.shape[0]):
+            river = node_table.ix[i]['River']
+            reach = node_table.ix[i]['Reach']
+            node = node_table.ix[i]['Node']
+            datum = node_table.ix[i]['Datum']
+            self._elevation_df[river][reach][node] = self._elevation_df[river][reach][node] + datum
+
     def node_to_cross_section(self, node_table):
         self._elevation_df.columns.names = ['river', 'reach', 'cross section']
 
@@ -45,9 +53,10 @@ class Forecast:
         self._elevation_df.columns = new_columns
 
     def run_ras_forecast(self, node_table_path):
-        title = datetime.date.today().strftime("%B %d, %Y")
+        title = datetime.datetime.today().strftime("%B %d, %Y, %H%M")
         output_file_path = title + '.f01'
         node_table = self.load_node_table(node_table_path)
+        self.node_datum_change(node_table)
         self.node_to_cross_section(node_table)
         steady_flow_forecast = RASSteadyFlowFileWriter(self._elevation_df, title, output_file_path)
         steady_flow_forecast.run_write_methods()
@@ -55,24 +64,25 @@ class Forecast:
 
 if __name__ == '__main__':
     import os
-    import feq
+    import feq, RASSteadyFlowFileWriter, forecast
 
     data_directory = 'data'
-    data_file_name = 'WBuncutx.wsq'
-    data_file_path = os.path.join(data_directory, data_file_name)
+    data_file_name_main = "WB_mainstem.wsq"
+    data_path_main = os.path.join(data_directory, data_file_name_main)
 
-    river = 'WestBranch'
-    reach = 'MainStem'
+    data_file_name_wf = "WB_WinfieldCr.wsq"
+    data_path_wf = os.path.join(data_directory, data_file_name_wf)
 
-    special_output = feq.FEQSpecialOutput(r"data\WBuncutx.wsq", river, reach)
+    main = feq.FEQSpecialOutput.read_special_output_file(data_path_main, 'WestBranch', 'MainStem')
+    wf_creek = feq.FEQSpecialOutput.read_special_output_file(data_path_wf, 'WestBranch', 'WinfieldCr')
 
-    constituent = 'Elev'
+    combined_spec_output = main.add_special_output(wf_creek)
+    elevation_df = combined_spec_output.get_constituent('Elev', start_date='2017-07-15 00:00:00', time_step='6H')
 
-    elevation_df = special_output.get_constituent(constituent)
-    elevation_df = elevation_df[-4:]
+    forecaster = forecast.Forecast(elevation_df)
 
-    node_path = r"data\node_table.csv"
+    node_directory = 'data'
+    node_file_name = "node_table.csv"
+    node_file_path = os.path.join(node_directory, node_file_name)
 
-    forecaster = Forecast(elevation_df)
-    forecaster.run_ras_forecast(node_path)
-
+    forecaster.run_ras_forecast(node_file_path)
