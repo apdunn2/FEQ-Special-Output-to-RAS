@@ -35,7 +35,7 @@ class Forecast:
             reach = node_table.ix[i]['Reach']
             node = node_table.ix[i]['Node']
             datum = node_table.ix[i]['Datum']
-            self._elevation_df[river][reach][node] = self._elevation_df[river][reach][node] + datum
+            self._elevation_df[river][reach][node] = self._elevation_df[river][reach][node] - datum
 
     def node_to_cross_section(self, node_table):
         self._elevation_df.columns.names = ['river', 'reach', 'cross section']
