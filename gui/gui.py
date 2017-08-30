@@ -74,7 +74,7 @@ class OpenSpecOutputDlg(QDialog, Ui_openSpecOutputDlg):
         if self._spec_output_path:
 
             message_box = QMessageBox()
-            message_box.setWindowTitle('Loading file')
+            message_box.setWindowTitle('Loading File')
             message_box.setText('Loading special output file...')
             message_box.setIcon(QMessageBox.Information)
             message_box.setStandardButtons(QMessageBox.NoButton)
@@ -105,7 +105,7 @@ class OpenSpecOutputDlg(QDialog, Ui_openSpecOutputDlg):
             message_box.close()
 
         else:
-            QMessageBox.critical(self, 'No file selected', 'Select a special output file to open.')
+            QMessageBox.critical(self, 'No File Selected', 'Select a special output file to open.')
 
     @pyqtSlot("int")
     def on_riverComboBox_currentIndexChanged(self, index):
@@ -134,6 +134,12 @@ class WriteFlowFileMainWindow(QMainWindow, Ui_MainWindow):
 
     def get_pwd(self):
         return self._pwd
+
+    @staticmethod
+    def _check_node_table_required_headers(node_table):
+        required_headers = pd.Index(['Node', 'XS', 'River', 'Reach'])
+
+        return required_headers.isin(node_table.keys()).all()
 
     @pyqtSlot()
     def on_addSpecOutputPushButton_clicked(self):
@@ -185,17 +191,29 @@ class WriteFlowFileMainWindow(QMainWindow, Ui_MainWindow):
 
         if file_path:
 
-            self._node_table = pd.read_csv(file_path)
-            self._node_table_path = file_path
+            node_table = pd.read_csv(file_path)
 
-            file_directory, file_name = os.path.split(file_path)
-            self.nodeTableLineEdit.setText(file_name)
+            if self._check_node_table_required_headers(node_table):
 
-            self._pwd = file_directory
+                if not node_table.keys().isin(['Elev Adj']).any():
+                    QMessageBox.information(self, 'Header Not Found', 'The elevation adjustment '
+                                                                      '(Elev Adj) header was not found')
 
-            self.addSpecOutputPushButton.setEnabled(True)
-            self.clearSpecOutputPushButton.setEnabled(True)
-            self.specOutputListWidget.setEnabled(True)
+                self._node_table = node_table
+                self._node_table_path = file_path
+
+                file_directory, file_name = os.path.split(file_path)
+                self.nodeTableLineEdit.setText(file_name)
+
+                self._pwd = file_directory
+
+                self.addSpecOutputPushButton.setEnabled(True)
+                self.clearSpecOutputPushButton.setEnabled(True)
+                self.specOutputListWidget.setEnabled(True)
+
+            else:
+
+                QMessageBox.critical(self, 'Unable to Load File', 'The node table file is missing required headers.')
 
     @pyqtSlot()
     def on_saveFlowFilePushButton_clicked(self):
@@ -210,6 +228,14 @@ class WriteFlowFileMainWindow(QMainWindow, Ui_MainWindow):
 
         if save_file_path:
 
+            message_box = QMessageBox()
+            message_box.setWindowTitle('Saving File')
+            message_box.setText('Saving flow file...')
+            message_box.setIcon(QMessageBox.Information)
+            message_box.setStandardButtons(QMessageBox.NoButton)
+            message_box.show()
+            QCoreApplication.processEvents()
+
             time_step = self.timeStepComboBox.currentText()
 
             elevation_df = self._feq_spec_output.get_constituent('Elev', start_date=start_date,
@@ -219,9 +245,11 @@ class WriteFlowFileMainWindow(QMainWindow, Ui_MainWindow):
             feq_to_ras_writer = FEQToRAS(self._node_table_path, elevation_df)
             feq_to_ras_writer.write_ras_flow_file(save_file_path)
 
+            message_box.close()
+
             message_box = QMessageBox()
             message_box.setWindowTitle('Save File')
-            message_box.setText('Finished saving flow file.')
+            message_box.setText('Done saving flow file.')
             message_box.setIcon(QMessageBox.Information)
             message_box.setStandardButtons(QMessageBox.Ok)
             message_box.exec_()
