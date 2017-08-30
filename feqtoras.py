@@ -23,23 +23,6 @@ class FEQToRAS:
             elevation_adjustment = node_table.loc[river_index & reach_index & node_index, 'Elev Adj'].values[0]
             self._elevation_df.loc[:, (river, reach, node)] += elevation_adjustment
 
-        # columns = self._elevation_df.columns
-        # for river in columns.levels[0]:
-        #     river_index = node_table['River'] == river
-        #     for reach in columns.levels[1]:
-        #         reach_index = node_table['Reach'] == reach
-        #         for node in columns.levels[2]:
-        #             node_index = node_table['Node'] == node
-        #             elevation_adjustment = node_table.loc[river_index & reach_index & node_index, 'Elev Adj'].values[0]
-        #             self._elevation_df.loc[:, (river, reach, node)] += elevation_adjustment
-
-        # for i in range(self._elevation_df.shape[0]):
-        #     river = node_table.loc[i, 'River']
-        #     reach = node_table.loc[i, 'Reach']
-        #     node = node_table.loc[i, 'Node']
-        #     elevation_adjustment = node_table.loc[i, 'Elev Adj']
-        #     self._elevation_df.loc[:, (river, reach, node)] += elevation_adjustment
-
     @staticmethod
     def _combine_dataframes(args):
         return pd.concat(args, axis=1)
