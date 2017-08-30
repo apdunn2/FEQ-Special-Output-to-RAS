@@ -1,4 +1,6 @@
 import datetime
+import os
+
 import pandas as pd
 
 from ras import RASSteadyFlowFileWriter
@@ -6,11 +8,12 @@ from ras import RASSteadyFlowFileWriter
 
 class FEQToRAS:
 
-    def __init__(self, elevation_df):
+    def __init__(self, node_table_path, elevation_df):
+        self._node_table = self._load_node_table(node_table_path)
         self._elevation_df = elevation_df.copy(deep=True)
 
     def _adjust_node_elevation(self, node_table):
-        for i in range(node_table.shape[0]):
+        for i in range(self._elevation_df.shape[0]):
             river = node_table.loc[i, 'River']
             reach = node_table.loc[i, 'Reach']
             node = node_table.loc[i, 'Node']
@@ -54,21 +57,24 @@ class FEQToRAS:
         node_table['River & Reach'] = node_table['River'] + ',' + node_table['Reach']
         return node_table
 
-    def write_ras_flow_file(self, node_table_path):
-        title = datetime.datetime.today().strftime("%B %d, %Y, %H%M")
-        output_file_path = title + '.f01'
-        node_table = self._load_node_table(node_table_path)
+    def write_ras_flow_file(self, output_file_path=None):
 
-        if 'Elev Adj' in node_table.keys():
-            self._adjust_node_elevation(node_table)
+        if not output_file_path:
+            title = datetime.datetime.today().strftime("%B %d, %Y, %H%M")
+            output_file_path = title + '.f01'
+        else:
+            output_file_dir, output_file_name = os.path.split(output_file_path)
+            title, _ = os.path.splitext(output_file_name)
 
-        self._convert_node_to_cross_section(node_table)
+        if 'Elev Adj' in self._node_table.keys():
+            self._adjust_node_elevation(self._node_table)
+
+        self._convert_node_to_cross_section(self._node_table)
         steady_flow_forecast = RASSteadyFlowFileWriter(self._elevation_df, title)
         steady_flow_forecast.write_flow_file(output_file_path)
 
 
 if __name__ == '__main__':
-    import os
     import feq
 
     data_directory = 'data'
@@ -84,10 +90,10 @@ if __name__ == '__main__':
     combined_spec_output = main.add_special_output(wf_creek)
     elevation_df = combined_spec_output.get_constituent('Elev', start_date='2017-07-15 00:00:00', time_step='6H')
 
-    forecaster = FEQToRAS(elevation_df)
-
     node_directory = 'data'
     node_file_name = "node_table.csv"
     node_file_path = os.path.join(node_directory, node_file_name)
 
-    forecaster.write_ras_flow_file(node_file_path)
+    forecaster = FEQToRAS(node_file_path, elevation_df)
+
+    forecaster.write_ras_flow_file()
