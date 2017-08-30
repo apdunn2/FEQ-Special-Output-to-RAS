@@ -11,14 +11,34 @@ class FEQToRAS:
     def __init__(self, node_table_path, elevation_df):
         self._node_table = self._load_node_table(node_table_path)
         self._elevation_df = elevation_df.copy(deep=True)
+        if 'Elev Adj' in self._node_table.keys():
+            self._adjust_node_elevation(self._node_table)
 
     def _adjust_node_elevation(self, node_table):
-        for i in range(self._elevation_df.shape[0]):
-            river = node_table.loc[i, 'River']
-            reach = node_table.loc[i, 'Reach']
-            node = node_table.loc[i, 'Node']
-            elevation_adjustment = node_table.loc[i, 'Elev Adj']
+
+        for river, reach, node in self._elevation_df.columns:
+            river_index = node_table['River'] == river
+            reach_index = node_table['Reach'] == reach
+            node_index = node_table['Node'] == node
+            elevation_adjustment = node_table.loc[river_index & reach_index & node_index, 'Elev Adj'].values[0]
             self._elevation_df.loc[:, (river, reach, node)] += elevation_adjustment
+
+        # columns = self._elevation_df.columns
+        # for river in columns.levels[0]:
+        #     river_index = node_table['River'] == river
+        #     for reach in columns.levels[1]:
+        #         reach_index = node_table['Reach'] == reach
+        #         for node in columns.levels[2]:
+        #             node_index = node_table['Node'] == node
+        #             elevation_adjustment = node_table.loc[river_index & reach_index & node_index, 'Elev Adj'].values[0]
+        #             self._elevation_df.loc[:, (river, reach, node)] += elevation_adjustment
+
+        # for i in range(self._elevation_df.shape[0]):
+        #     river = node_table.loc[i, 'River']
+        #     reach = node_table.loc[i, 'Reach']
+        #     node = node_table.loc[i, 'Node']
+        #     elevation_adjustment = node_table.loc[i, 'Elev Adj']
+        #     self._elevation_df.loc[:, (river, reach, node)] += elevation_adjustment
 
     @staticmethod
     def _combine_dataframes(args):
@@ -66,9 +86,6 @@ class FEQToRAS:
             output_file_dir, output_file_name = os.path.split(output_file_path)
             title, _ = os.path.splitext(output_file_name)
 
-        if 'Elev Adj' in self._node_table.keys():
-            self._adjust_node_elevation(self._node_table)
-
         self._convert_node_to_cross_section(self._node_table)
         steady_flow_forecast = RASSteadyFlowFileWriter(self._elevation_df, title)
         steady_flow_forecast.write_flow_file(output_file_path)
@@ -94,6 +111,6 @@ if __name__ == '__main__':
     node_file_name = "node_table.csv"
     node_file_path = os.path.join(node_directory, node_file_name)
 
-    forecaster = FEQToRAS(node_file_path, elevation_df)
+    # forecaster = FEQToRAS(node_file_path, elevation_df)
 
-    forecaster.write_ras_flow_file()
+    # forecaster.write_ras_flow_file()
