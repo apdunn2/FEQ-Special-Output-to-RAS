@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 
 
-class FEQSpecialOutput:
+class SpecialOutput:
 
     def __init__(self, special_output_df):
         """Do not use __init__() directly. Use FEQSpecialOutput.read_special_output_file() to create an instance from

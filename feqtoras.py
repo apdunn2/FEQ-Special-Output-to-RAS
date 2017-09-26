@@ -1,34 +1,30 @@
-import datetime
-import os
-
 import pandas as pd
-
-from ras import RASSteadyFlowFileWriter
 
 
 class FEQToRAS:
 
-    def __init__(self, node_table_path, elevation_df):
+    def __init__(self, node_table_path, feq_special_output):
         self._node_table = self._load_node_table(node_table_path)
-        self._elevation_df = elevation_df.copy(deep=True)
-        if 'Elev Adj' in self._node_table.keys():
-            self._adjust_node_elevation(self._node_table)
+        self._feq_special_output = feq_special_output
 
-    def _adjust_node_elevation(self, node_table):
+    @staticmethod
+    def _adjust_node_elevation(node_table, elevation_df):
 
-        for river, reach, node in self._elevation_df.columns:
-            river_index = node_table['River'] == river
-            reach_index = node_table['Reach'] == reach
-            node_index = node_table['Node'] == node
-            elevation_adjustment = node_table.loc[river_index & reach_index & node_index, 'Elev Adj'].values[0]
-            self._elevation_df.loc[:, (river, reach, node)] += elevation_adjustment
+        if 'Elev Adj' in node_table.keys():
+            for river, reach, node in elevation_df.columns:
+                river_index = node_table['River'] == river
+                reach_index = node_table['Reach'] == reach
+                node_index = node_table['Node'] == node
+                elevation_adjustment = node_table.loc[river_index & reach_index & node_index, 'Elev Adj'].values[0]
+                elevation_df.loc[:, (river, reach, node)] += elevation_adjustment
 
     @staticmethod
     def _combine_dataframes(args):
         return pd.concat(args, axis=1)
 
-    def _convert_node_to_cross_section(self, node_table):
-        self._elevation_df.columns.names = ['river', 'reach', 'cross section']
+    @staticmethod
+    def _convert_node_to_cross_section(node_table, constituent_df):
+        constituent_df.columns.names = ['river', 'reach', 'cross section']
 
         node_reference_table = node_table.copy(deep=True)
         node_reference_table.set_index('River', inplace=True)
@@ -36,11 +32,11 @@ class FEQToRAS:
         node_reference_table.set_index('Node', inplace=True, append=True)
 
         list_of_tuples = [(river, reach, node_reference_table.loc[river, reach, node][0])
-                          for river, reach, node in self._elevation_df.columns.values]
+                          for river, reach, node in constituent_df.columns.values]
 
         new_columns = pd.MultiIndex.from_tuples(list_of_tuples)
 
-        self._elevation_df.columns = new_columns
+        constituent_df.columns = new_columns
 
     def _get_unique_river_and_reach(self):
         """
@@ -54,46 +50,28 @@ class FEQToRAS:
 
     @staticmethod
     def _load_node_table(node_table_path):
-        node_table = pd.read_csv(node_table_path)
-        node_table['Node'] = node_table['Node'].astype(str)
-        node_table['XS'] = node_table['XS'].astype(str)
+        node_table = pd.read_csv(node_table_path, dtype={'Node': str, 'XS': str})
         node_table['River & Reach'] = node_table['River'] + ',' + node_table['Reach']
         return node_table
 
-    def write_ras_flow_file(self, output_file_path=None):
+    def get_ras_elevation(self, start_date=None, end_date=None, time_step=None):
 
-        if not output_file_path:
-            title = datetime.datetime.today().strftime("%B %d, %Y, %H%M")
-            output_file_path = title + '.f01'
-        else:
-            output_file_dir, output_file_name = os.path.split(output_file_path)
-            title, _ = os.path.splitext(output_file_name)
+        elevation_df = self._feq_special_output.get_constituent('Elev',
+                                                                start_date=start_date,
+                                                                end_date=end_date,
+                                                                time_step=time_step)
 
-        self._convert_node_to_cross_section(self._node_table)
-        steady_flow_forecast = RASSteadyFlowFileWriter(self._elevation_df, title)
-        steady_flow_forecast.write_flow_file(output_file_path)
+        self._adjust_node_elevation(self._node_table, elevation_df)
+        self._convert_node_to_cross_section(self._node_table, elevation_df)
 
+        return elevation_df
 
-if __name__ == '__main__':
-    import feq
+    def get_ras_flow(self, start_date=None, end_date=None, time_step=None):
 
-    data_directory = 'data'
-    data_file_name_main = "WB_mainstem.wsq"
-    data_path_main = os.path.join(data_directory, data_file_name_main)
+        flow_df = self._feq_special_output.get_constituent('Flow',
+                                                           start_date=start_date,
+                                                           end_date=end_date,
+                                                           time_step=time_step)
+        self._convert_node_to_cross_section(self._node_table, flow_df)
 
-    data_file_name_wf = "WB_WinfieldCr.wsq"
-    data_path_wf = os.path.join(data_directory, data_file_name_wf)
-
-    main = feq.FEQSpecialOutput.read_special_output_file(data_path_main, 'WestBranch', 'MainStem')
-    wf_creek = feq.FEQSpecialOutput.read_special_output_file(data_path_wf, 'WestBranch', 'WinfieldCr')
-
-    combined_spec_output = main.add_special_output(wf_creek)
-    elevation_df = combined_spec_output.get_constituent('Elev', start_date='2017-07-15 00:00:00', time_step='6H')
-
-    node_directory = 'data'
-    node_file_name = "node_table.csv"
-    node_file_path = os.path.join(node_directory, node_file_name)
-
-    # forecaster = FEQToRAS(node_file_path, elevation_df)
-
-    # forecaster.write_ras_flow_file()
+        return flow_df
