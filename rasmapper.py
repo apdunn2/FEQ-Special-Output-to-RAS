@@ -18,6 +18,81 @@ from RasMapperLib.Utility import Path, XML
 from MapperLibAddon import TileCacheComputer
 
 
+class ExportOptions:
+
+    def __init__(self, ras_mapper):
+
+        self._ras_mapper = ras_mapper
+
+        self._dataset_identifier = 'depth'
+        self._file_name = None
+        self._is_profile = True
+        self._max_zoom = 12
+        self._plan_name = None
+
+        self._start_profile = None
+        self._end_profile = None
+
+    def set_tile_cache_options(self, tile_cache_options):
+
+        tile_cache_options.DatasetIdentifier = self._dataset_identifier
+        tile_cache_options.MaxZoom = self._max_zoom
+        tile_cache_options.IsProfile = self._is_profile
+
+        if self._file_name:
+            tile_cache_options.Filename = self._file_name
+
+        tile_cache_options.StartProfile = self._start_profile
+        tile_cache_options.EndProfile = self._end_profile
+
+    @property
+    def dataset_identifier(self):
+        return self._dataset_identifier
+
+    @property
+    def end_profile(self):
+        return self._end_profile
+
+    @property
+    def file_name(self):
+        return self._file_name
+
+    @file_name.setter
+    def file_name(self, value):
+        self._file_name = value
+
+    @property
+    def max_zoom(self):
+        return self._max_zoom
+
+    @max_zoom.setter
+    def max_zoom(self, value):
+
+        if (int(value) < 12) or (18 < int(value)):
+            raise ValueError("Value must be an integer between 12 and 18.")
+
+        self._max_zoom = int(value)
+
+    @property
+    def plan_name(self):
+        return self._plan_name
+
+    @plan_name.setter
+    def plan_name(self, value):
+
+        if value not in self._ras_mapper.get_plan_names():
+            raise ValueError("Invalid plan name")
+
+        self._plan_name = value
+        depth_map = self._ras_mapper.get_depth_map(self._plan_name)
+        self._start_profile = depth_map.Results.ProfileNames[0]
+        self._end_profile = depth_map.Results.ProfileNames[-1]
+
+    @property
+    def start_profile(self):
+        return self._start_profile
+
+
 class RasMapper:
 
     def __init__(self):
@@ -27,25 +102,16 @@ class RasMapper:
 
         self._setup_gdal()
 
-    @staticmethod
-    def _find_depth_map(plan_name, results_group):
+    def _get_results(self, plan_name):
 
-        feq_forecast_results = None
-        depth_map = None
+        plan_results = None
 
-        for results in results_group.FindAllResults():
+        for results in self._results_group.FindAllResults():
             if results.Name == plan_name:
-                feq_forecast_results = results
+                plan_results = results
                 break
 
-        if feq_forecast_results is not None:
-
-            for map_ in feq_forecast_results.FindAllMaps():
-                if map_.Name == 'depth':
-                    depth_map = map_
-                    break
-
-        return depth_map
+        return plan_results
 
     @staticmethod
     def _set_projection_path(xml_node_1):
@@ -54,32 +120,6 @@ class RasMapper:
         if xmlNode2 is not None:
             SharedData.SRSFilename = Path.MakeAbsolute(XML.StringAttribute(xmlNode2, "Filename", ""),
                                                        SharedData.RasMapFilename)
-
-    def _get_tile_cache_computable(self, export_options):
-
-        depth_map = self._load_depth_map('FEQ forecast')
-
-        cache_computable = None
-
-        if depth_map:
-
-            depth_map_terrain = depth_map.Results.Geometry.Terrain
-            terrain_center_point = depth_map_terrain.Extent.CenterPointM()
-
-            depth_map.Results.Geometry.CompleteForComputations()
-            depth_map.Results.Geometry.XSInterpolationSurface().LoadIfNeeded()
-
-            tile_cache_options = TileCacheOptions(terrain_center_point, depth_map)
-
-            tile_cache_options.DatasetIdentifier = 'depth'
-            tile_cache_options.MaxZoom = 12
-            tile_cache_options.IsProfile = True
-            tile_cache_options.StartProfile = depth_map.Results.ProfileNames[0]
-            tile_cache_options.EndProfile = depth_map.Results.ProfileNames[-1]
-
-            cache_computable = TileCacheComputable(tile_cache_options, depth_map)
-
-        return cache_computable
 
     @staticmethod
     def _setup_gdal():
@@ -112,19 +152,6 @@ class RasMapper:
         gdal_plugin_directory = os.path.join(gdal_tool_directory, 'gdalplugins')
         System.Environment.SetEnvironmentVariable('GDAL_DRIVER_PATH', gdal_plugin_directory)
 
-    def _load_depth_map(self, plan_name):
-
-        self._results_group = ResultsGroup()
-
-        xml_node_1 = self._doc.SelectSingleNode('RASMapper')
-        results_node = xml_node_1.SelectSingleNode(self._results_group.XMLNodeName)
-
-        self._load_layers(self._results_group, results_node)
-
-        depth_map = self._find_depth_map(plan_name, self._results_group)
-
-        return depth_map
-
     def _load_layers(self, parent, xml_node):
 
         if xml_node is None:
@@ -139,35 +166,66 @@ class RasMapper:
                 layer.XMLLoad(xmlNode)
                 self._load_layers(layer, xmlNode)
 
-    def export_tile_cache(self, export_options=None):
+    def _load_results(self):
 
-        plan_name = 'FEQ forecast'
+        self._results_group = ResultsGroup()
 
-        depth_map = self._load_depth_map(plan_name)
+        xml_node_1 = self._doc.SelectSingleNode('RASMapper')
+        results_node = xml_node_1.SelectSingleNode(self._results_group.XMLNodeName)
 
-        if depth_map:
+        self._load_layers(self._results_group, results_node)
 
-            depth_map_terrain = depth_map.Results.Geometry.Terrain
-            terrain_center_point = depth_map_terrain.Extent.CenterPointM()
+    def get_depth_map(self, plan_name):
 
-            depth_map.Results.Geometry.CompleteForComputations()
-            depth_map.Results.Geometry.XSInterpolationSurface().LoadIfNeeded()
+        plan_results = self._get_results(plan_name)
 
-            tile_cache_options = TileCacheOptions(terrain_center_point, depth_map)
+        depth_map = None
 
-            if os.path.isfile(tile_cache_options.Filename):
-                os.remove(tile_cache_options.Filename)
+        if plan_results is not None:
 
-            tile_cache_options.DatasetIdentifier = 'depth'
-            tile_cache_options.MaxZoom = 12
-            tile_cache_options.IsProfile = True
-            tile_cache_options.StartProfile = depth_map.Results.ProfileNames[0]
-            tile_cache_options.EndProfile = depth_map.Results.ProfileNames[-1]
+            for map_ in plan_results.FindAllMaps():
+                if map_.Name == 'depth':
+                    depth_map = map_
+                    break
 
-            cache_computable = TileCacheComputable(tile_cache_options, depth_map)
+        return depth_map
 
-            computer = TileCacheComputer()
-            computer.Run(cache_computable)
+    def get_export_options(self):
+        return ExportOptions(self)
+
+    def get_results_file(self, plan_name):
+
+        plan_results = self._get_results(plan_name)
+        return plan_results.HDFFilename
+
+    def get_plan_names(self):
+
+        plan_names = [results.Name for results in self._results_group.FindAllResults()]
+
+        return plan_names
+
+    def export_tile_cache(self, export_options):
+
+        depth_map = self.get_depth_map(export_options.plan_name)
+
+        depth_map_terrain = depth_map.Results.Geometry.Terrain
+        terrain_center_point = depth_map_terrain.Extent.CenterPointM()
+
+        depth_map.Results.Geometry.CompleteForComputations()
+        depth_map.Results.Geometry.XSInterpolationSurface().LoadIfNeeded()
+
+        tile_cache_options = TileCacheOptions(terrain_center_point, depth_map)
+
+        export_options.set_tile_cache_options(tile_cache_options)
+
+        # delete old database file if it exists
+        if os.path.isfile(tile_cache_options.Filename):
+            os.remove(tile_cache_options.Filename)
+
+        cache_computable = TileCacheComputable(tile_cache_options, depth_map)
+
+        computer = TileCacheComputer()
+        computer.Run(cache_computable)
 
     def load_rasmap_file(self, rasmap_file_path):
 
@@ -177,3 +235,5 @@ class RasMapper:
 
         xml_node_1 = self._doc.SelectSingleNode('RASMapper')
         self._set_projection_path(xml_node_1)
+
+        self._load_results()
