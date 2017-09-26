@@ -54,11 +54,12 @@ class FEQToRAS:
         node_table['River & Reach'] = node_table['River'] + ',' + node_table['Reach']
         return node_table
 
-    def get_ras_elevation(self, start_date=None, end_date=None, time_step=None):
+    def get_ras_elevation(self, start_date=None, end_date=None, number_of_days=None, time_step=None):
 
         elevation_df = self._feq_special_output.get_constituent('Elev',
                                                                 start_date=start_date,
                                                                 end_date=end_date,
+                                                                number_of_days=number_of_days,
                                                                 time_step=time_step)
 
         self._adjust_node_elevation(self._node_table, elevation_df)
@@ -66,11 +67,12 @@ class FEQToRAS:
 
         return elevation_df
 
-    def get_ras_flow(self, start_date=None, end_date=None, time_step=None):
+    def get_ras_flow(self, start_date=None, end_date=None, number_of_days=None, time_step=None):
 
         flow_df = self._feq_special_output.get_constituent('Flow',
                                                            start_date=start_date,
                                                            end_date=end_date,
+                                                           number_of_days=number_of_days,
                                                            time_step=time_step)
         self._convert_node_to_cross_section(self._node_table, flow_df)
 

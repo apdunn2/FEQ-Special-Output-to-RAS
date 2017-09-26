@@ -108,7 +108,7 @@ class SpecialOutput:
 
         return type(self)(new_special_output_df)
 
-    def get_constituent(self, constituent_name, start_date=None, end_date=None, time_step=None):
+    def get_constituent(self, constituent_name, start_date=None, end_date=None, number_of_days=None, time_step=None):
         """
 
         :param constituent_name:
@@ -143,6 +143,10 @@ class SpecialOutput:
             constituent_df.interpolate('time', inplace=True)
             constituent_df = constituent_df.resample(time_step).asfreq()
             constituent_df = constituent_df.dropna(how='all')
+
+        if number_of_days:
+            end_date = constituent_df.index[-1]
+            start_date = end_date - pd.to_timedelta(number_of_days, 'days')
 
         return constituent_df.truncate(start_date, end_date)
 
