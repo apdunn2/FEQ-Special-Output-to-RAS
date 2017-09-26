@@ -1,30 +1,58 @@
 import sys
 import os
 
-RAS_PATH = r'C:\Program Files (x86)\HEC\HEC-RAS\5.0.3'
-RAS_VERSION = "5.03"
-
-sys.path.append(RAS_PATH)
-
 from anytree import Node
+import clr
 import numpy as np
 import pandas as pd
 import pythoncom
 
-import clr
 clr.AddReference('System.Windows')
-clr.AddReference('RasMapperLib')
-clr.AddReference('MapperLibAddon')
 
 import System
 from System.Windows.Forms import Application
 from System.Xml import XmlDocument
 
-from RasMapperLib import RASMapper, ResultsGroup, SharedData, TileCacheComputable, TileCacheOptions
-from RasMapperLib.Utility import Path, XML
-from MapperLibAddon import H5Helper, TileCacheComputer
 
 defaultNamedNotOptArg = pythoncom.Empty
+
+rasmapperlib = None
+mapperlibaddon = None
+
+RAS_PATH = None
+RAS_VERSION = None
+
+
+def set_ras_path(ras_path):
+    global RAS_PATH
+
+    if not os.path.isdir(ras_path):
+        raise NotADirectoryError(ras_path + " is not a directory")
+
+    RAS_PATH = ras_path
+
+    _import_ras_assemblies(ras_path)
+
+
+def set_ras_version(version):
+
+    global RAS_VERSION
+    RAS_VERSION = version
+
+
+def _import_ras_assemblies(ras_path):
+
+    sys.path.append(ras_path)
+
+    global rasmapperlib
+    clr.AddReference('RasMapperLib')
+    import RasMapperLib
+    rasmapperlib = RasMapperLib
+
+    global mapperlibaddon
+    clr.AddReference('MapperLibAddon')
+    import MapperLibAddon
+    mapperlibaddon = MapperLibAddon
 
 
 class ExportOptions:
@@ -124,7 +152,7 @@ class RasMapper:
     def __init__(self):
 
         self._doc = XmlDocument()
-        self._results_group = ResultsGroup()
+        self._results_group = rasmapperlib.ResultsGroup()
 
         self._setup_gdal()
 
@@ -144,8 +172,9 @@ class RasMapper:
 
         xmlNode2 = xml_node_1.SelectSingleNode("RASProjectionFilename")
         if xmlNode2 is not None:
-            SharedData.SRSFilename = Path.MakeAbsolute(XML.StringAttribute(xmlNode2, "Filename", ""),
-                                                       SharedData.RasMapFilename)
+            rasmapperlib.SharedData.SRSFilename = rasmapperlib.Utility.Path.MakeAbsolute(
+                rasmapperlib.Utility.XML.StringAttribute(xmlNode2, "Filename", ""),
+                rasmapperlib.SharedData.RasMapFilename)
 
     @staticmethod
     def _setup_gdal():
@@ -154,7 +183,7 @@ class RasMapper:
 
         executable_directory, _ = os.path.split(Application.ExecutablePath)
 
-        application_gdal_directory = os.path.join(executable_directory)
+        application_gdal_directory = os.path.join(executable_directory, gdal_sub_directory)
 
         if not os.path.isdir(application_gdal_directory):
             raise NotADirectoryError('Cannot find GDAL directory: ' + application_gdal_directory)
@@ -186,7 +215,7 @@ class RasMapper:
         xml_node_list = xml_node.SelectNodes("Layer")
 
         for xmlNode in xml_node_list:
-            layer = RASMapper.LoadLayer(parent, xmlNode)
+            layer = rasmapperlib.RASMapper.LoadLayer(parent, xmlNode)
             if layer is not None:
                 parent.Nodes.Add(layer)
                 layer.XMLLoad(xmlNode)
@@ -194,7 +223,7 @@ class RasMapper:
 
     def _load_results(self):
 
-        self._results_group = ResultsGroup()
+        self._results_group = rasmapperlib.ResultsGroup()
 
         xml_node_1 = self._doc.SelectSingleNode('RASMapper')
         results_node = xml_node_1.SelectSingleNode(self._results_group.XMLNodeName)
@@ -240,7 +269,7 @@ class RasMapper:
         depth_map.Results.Geometry.CompleteForComputations()
         depth_map.Results.Geometry.XSInterpolationSurface().LoadIfNeeded()
 
-        tile_cache_options = TileCacheOptions(terrain_center_point, depth_map)
+        tile_cache_options = rasmapperlib.TileCacheOptions(terrain_center_point, depth_map)
 
         export_options.set_tile_cache_options(tile_cache_options)
 
@@ -248,16 +277,16 @@ class RasMapper:
         if os.path.isfile(tile_cache_options.Filename):
             os.remove(tile_cache_options.Filename)
 
-        cache_computable = TileCacheComputable(tile_cache_options, depth_map)
+        cache_computable = rasmapperlib.TileCacheComputable(tile_cache_options, depth_map)
 
-        computer = TileCacheComputer()
+        computer = mapperlibaddon.TileCacheComputer()
         computer.Run(cache_computable)
 
     def load_rasmap_file(self, rasmap_file_path):
 
         self._doc.Load(rasmap_file_path)
 
-        SharedData.RasMapFilename = rasmap_file_path
+        rasmapperlib.SharedData.RasMapFilename = rasmap_file_path
 
         xml_node_1 = self._doc.SelectSingleNode('RASMapper')
         self._set_projection_path(xml_node_1)
@@ -270,7 +299,7 @@ class Results:
     def __init__(self, hdf5_file_name):
 
         self._h5_file_name = hdf5_file_name
-        self._h5_helper = H5Helper(hdf5_file_name)
+        self._h5_helper = mapperlibaddon.H5Helper(hdf5_file_name)
 
         self._root_node = self._create_hdf_tree()
 
