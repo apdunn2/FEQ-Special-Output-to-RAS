@@ -25,7 +25,7 @@
        </widget>
       </item>
       <item>
-       <widget class="QLineEdit" name="lineEdit">
+       <widget class="QLineEdit" name="nodeTableLineEdit">
         <property name="readOnly">
          <bool>true</bool>
         </property>
@@ -36,7 +36,7 @@
     <item row="0" column="1">
      <layout class="QHBoxLayout" name="horizontalLayout_3">
       <item>
-       <widget class="QPushButton" name="rasDirPusButton">
+       <widget class="QPushButton" name="rasDirPushButton">
         <property name="text">
          <string>RAS Directory</string>
         </property>
@@ -63,9 +63,16 @@
        <item>
         <layout class="QVBoxLayout" name="verticalLayout">
          <item>
-          <widget class="QPushButton" name="loadSpecOutputPushButton">
+          <widget class="QPushButton" name="addSpecOutputPushButton">
            <property name="text">
-            <string>Load</string>
+            <string>Add</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="editSpecOutputPushButton">
+           <property name="text">
+            <string>Edit</string>
            </property>
           </widget>
          </item>
@@ -92,7 +99,7 @@
         </layout>
        </item>
        <item>
-        <widget class="QTableView" name="specOutputTableView"/>
+        <widget class="QListWidget" name="specOutputListWidget"/>
        </item>
       </layout>
      </widget>
@@ -145,17 +152,21 @@
         <widget class="QComboBox" name="cacheLevelComboBox"/>
        </item>
        <item row="3" column="0">
-        <widget class="QLabel" name="label_4">
+        <widget class="QLabel" name="planNameLabel">
+         <property name="enabled">
+          <bool>false</bool>
+         </property>
          <property name="text">
           <string>Plan Name</string>
-         </property>
-         <property name="buddy">
-          <cstring>planNameLineEdit</cstring>
          </property>
         </widget>
        </item>
        <item row="3" column="1">
-        <widget class="QLineEdit" name="planNameLineEdit"/>
+        <widget class="QComboBox" name="planNameComboBox">
+         <property name="enabled">
+          <bool>false</bool>
+         </property>
+        </widget>
        </item>
       </layout>
      </widget>
@@ -197,6 +208,9 @@
     </item>
     <item row="2" column="1">
      <widget class="QPushButton" name="exportTilesPushButton">
+      <property name="enabled">
+       <bool>false</bool>
+      </property>
       <property name="text">
        <string>Export Tiles for Web Viewing</string>
       </property>
@@ -241,6 +255,9 @@
    </property>
   </action>
   <action name="actionSaveAs">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
    <property name="text">
     <string>Save As</string>
    </property>
@@ -248,20 +265,21 @@
  </widget>
  <tabstops>
   <tabstop>nodeTablePushButton</tabstop>
-  <tabstop>lineEdit</tabstop>
-  <tabstop>loadSpecOutputPushButton</tabstop>
+  <tabstop>nodeTableLineEdit</tabstop>
+  <tabstop>addSpecOutputPushButton</tabstop>
+  <tabstop>editSpecOutputPushButton</tabstop>
   <tabstop>clearSpecOutputPushButton</tabstop>
-  <tabstop>specOutputTableView</tabstop>
+  <tabstop>specOutputListWidget</tabstop>
   <tabstop>numDaysLineEdit</tabstop>
   <tabstop>timeStepComboBox</tabstop>
-  <tabstop>rasDirPusButton</tabstop>
+  <tabstop>rasDirPushButton</tabstop>
   <tabstop>rasDirLineEdit</tabstop>
   <tabstop>rasmapFilePushButton</tabstop>
   <tabstop>rasmapFileLineEdit</tabstop>
   <tabstop>exportDBPushButton</tabstop>
   <tabstop>exportDBLineEdit</tabstop>
   <tabstop>cacheLevelComboBox</tabstop>
-  <tabstop>planNameLineEdit</tabstop>
+  <tabstop>exportTilesPushButton</tabstop>
  </tabstops>
  <resources/>
  <connections/>
