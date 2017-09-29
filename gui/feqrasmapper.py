@@ -26,8 +26,8 @@ class FEQRASMapperMainWindow(QMainWindow, Ui_FEQRASMapperMainWindow):
 
         self._setup_ui()
 
-        # self._cwd = os.path.expanduser('~/Documents')
-        self._cwd = '.'
+        self._cwd = os.path.expanduser('~/Documents')
+        # self._cwd = '.'
         self._node_table = None
         self._node_table_path = None
         self._ras_mapper = None
@@ -80,7 +80,13 @@ class FEQRASMapperMainWindow(QMainWindow, Ui_FEQRASMapperMainWindow):
         self.timeStepComboBox.addItems(['1H', '3H', '6H'])
         self.cacheLevelComboBox.addItems(map(str, range(12, 19)))
 
-        self.rasDirLineEdit.setText(None)
+        program_files_32_dir = os.environ['PROGRAMFILES(x86)']
+        hec_folder = 'HEC'
+        ras_folder = r'HEC-RAS\5.0.3'
+        ras_dir = os.path.join(program_files_32_dir, hec_folder, ras_folder)
+        if os.path.isdir(ras_dir):
+            self._config['RAS path'] = ras_dir
+            self.rasDirLineEdit.setText(ras_dir)
 
     def _update_spec_output(self, reach_config):
 
@@ -101,7 +107,9 @@ class FEQRASMapperMainWindow(QMainWindow, Ui_FEQRASMapperMainWindow):
             self.nodeTableLineEdit.setText(node_table_name)
             self.feqSpecOutputGroupBox.setEnabled(True)
         else:
+            self._node_table = None
             self.nodeTableLineEdit.setText(None)
+            self.feqSpecOutputGroupBox.setEnabled(False)
 
         # update special output info
         self.specOutputListWidget.clear()
@@ -318,9 +326,9 @@ class FEQRASMapperMainWindow(QMainWindow, Ui_FEQRASMapperMainWindow):
 
             self._config['RAS path'] = new_ras_path
 
-            file_directory, _ = os.path.split(new_ras_path)
+            # file_directory, _ = os.path.split(new_ras_path)
 
-            self._cwd = file_directory
+            # self._cwd = file_directory
 
             self._update_ui()
 
@@ -459,6 +467,11 @@ class FEQRASExportDlg(QDialog, Ui_FEQRASExportDlg):
         super().__init__(parent)
         self.setupUi(self)
 
+        # remove the context help button
+        window_flags = self.windowFlags()
+        window_flags &= ~Qt.WindowContextHelpButtonHint
+        self.setWindowFlags(Qt.WindowFlags(window_flags))
+
         self._compute_cancelled = False
 
         self._config = config
@@ -466,6 +479,9 @@ class FEQRASExportDlg(QDialog, Ui_FEQRASExportDlg):
     def add_message(self, message):
         self.computeMessageTextEdit.append(message)
         QCoreApplication.processEvents()
+
+    def closeEvent(self, event):
+        event.ignore()
 
     def begin_export(self):
 
