@@ -2,8 +2,8 @@ import sys
 
 from PyQt5.QtWidgets import QApplication
 
-# from gui.gui import WriteFlowFileMainWindow
-from gui.feqrasmapper import FEQRASMapperMainWindow
+from gui import FEQRASMapperMainWindow
+
 
 if __name__ == "__main__":
 

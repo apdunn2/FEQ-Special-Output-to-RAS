@@ -1,18 +1,16 @@
-import os
 import copy
+import os
 
 import pandas as pd
 import yaml
-
 from PyQt5.QtCore import pyqtSlot, Qt, QCoreApplication
 from PyQt5.QtWidgets import QDialog, QDialogButtonBox, QFileDialog, QMainWindow, QMessageBox
 
+import feqtoras
 import ras
-import feqrasmapper
-
-from gui.ui_feqrasmapper import Ui_FEQRASMapperMainWindow
-from gui.ui_feqrasexportdlg import Ui_FEQRASExportDlg
-from gui.ui_openspecoutputdlg import Ui_openSpecOutputDlg
+from ui_feqrasexportdlg import Ui_FEQRASExportDlg
+from ui_feqrasmapper import Ui_FEQRASMapperMainWindow
+from ui_openspecoutputdlg import Ui_openSpecOutputDlg
 
 
 class FEQRASMapperMainWindow(QMainWindow, Ui_FEQRASMapperMainWindow):
@@ -485,7 +483,7 @@ class FEQRASExportDlg(QDialog, Ui_FEQRASExportDlg):
 
     def begin_export(self):
 
-        feq_ras_mapper = feqrasmapper.FEQRASMapper(self._config)
+        feq_ras_mapper = feqtoras.FEQRASMapper(self._config)
 
         self.computeMessageTextEdit.append("Loading special output...")
         QCoreApplication.processEvents()
