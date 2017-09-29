@@ -130,6 +130,7 @@ class Ui_FEQRASMapperMainWindow(object):
         self.actionSave = QtWidgets.QAction(FEQRASMapperMainWindow)
         self.actionSave.setObjectName("actionSave")
         self.actionSaveAs = QtWidgets.QAction(FEQRASMapperMainWindow)
+        self.actionSaveAs.setEnabled(True)
         self.actionSaveAs.setObjectName("actionSaveAs")
         self.menuFile.addAction(self.actionNew)
         self.menuFile.addAction(self.actionOpen)

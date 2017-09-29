@@ -25,7 +25,7 @@ class FEQRASMapperMainWindow(QMainWindow, Ui_FEQRASMapperMainWindow):
         self._setup_ui()
 
         self._cwd = os.path.expanduser('~/Documents')
-        # self._cwd = '.'
+        self._last_config_file_path = None
         self._node_table = None
         self._node_table_path = None
         self._ras_mapper = None
@@ -60,8 +60,15 @@ class FEQRASMapperMainWindow(QMainWindow, Ui_FEQRASMapperMainWindow):
     @staticmethod
     def _get_empty_config():
 
+        program_files_32_dir = os.environ['PROGRAMFILES(x86)']
+        hec_folder = 'HEC'
+        ras_folder = r'HEC-RAS\5.0.3'
+        ras_dir = os.path.join(program_files_32_dir, hec_folder, ras_folder)
+        if not os.path.isdir(ras_dir):
+            ras_dir = None
+
         empty_config = {'Node table': None,
-                        'RAS path': None,
+                        'RAS path': ras_dir,
                         'Special output': {},
                         'Export time series': {'Number of days': None,
                                                'Time step': '1H'},
@@ -78,13 +85,7 @@ class FEQRASMapperMainWindow(QMainWindow, Ui_FEQRASMapperMainWindow):
         self.timeStepComboBox.addItems(['1H', '3H', '6H'])
         self.cacheLevelComboBox.addItems(map(str, range(12, 19)))
 
-        program_files_32_dir = os.environ['PROGRAMFILES(x86)']
-        hec_folder = 'HEC'
-        ras_folder = r'HEC-RAS\5.0.3'
-        ras_dir = os.path.join(program_files_32_dir, hec_folder, ras_folder)
-        if os.path.isdir(ras_dir):
-            self._config['RAS path'] = ras_dir
-            self.rasDirLineEdit.setText(ras_dir)
+        self._update_ui()
 
     def _update_spec_output(self, reach_config):
 
@@ -127,11 +128,14 @@ class FEQRASMapperMainWindow(QMainWindow, Ui_FEQRASMapperMainWindow):
         # update the ras path info
         self.rasDirLineEdit.setText(self._config['RAS path'])
         if self._config['RAS path']:
-            ras.set_ras_path(self._config['RAS path'])
+            ras_path = os.path.join(self._config['RAS path'])
+            ras.set_ras_path(ras_path)
 
         # update map export info
-        self.rasmapFileLineEdit.setText(self._config['RasMapper']['RASMAP file path'])
-        self.exportDBLineEdit.setText(self._config['RasMapper']['Export database path'])
+        rasmap_file = self._config['RasMapper']['RASMAP file path']
+        self.rasmapFileLineEdit.setText(rasmap_file)
+        db_file = self._config['RasMapper']['Export database path']
+        self.exportDBLineEdit.setText(db_file)
 
         cache_level_index = self.cacheLevelComboBox.findText(str(self._config['RasMapper']['Cache level']))
         self.cacheLevelComboBox.setCurrentIndex(cache_level_index)
@@ -160,11 +164,31 @@ class FEQRASMapperMainWindow(QMainWindow, Ui_FEQRASMapperMainWindow):
 
     @pyqtSlot()
     def on_actionNew_triggered(self):
+        self._last_config_file_path = None
         self._config = self._get_empty_config()
         self._update_ui()
 
     @pyqtSlot()
-    def on_actionSave_triggered(self):
+    def on_actoinSave_triggered(self):
+
+        if self._last_config_file_path:
+
+            with open(self._last_config_file_path, 'w') as f:
+                yaml.dump(self._config, f, default_flow_style=False)
+
+        else:
+            config_file_path, _ = QFileDialog.getSaveFileName(self, 'Save configuration', self._cwd, '*.yaml')
+
+            if config_file_path:
+                with open(config_file_path, 'w') as f:
+                    yaml.dump(self._config, f, default_flow_style=False)
+
+                config_file_dir, _ = os.path.split(config_file_path)
+
+                self._cwd = config_file_dir
+
+    @pyqtSlot()
+    def on_actionSaveAs_triggered(self):
 
         config_file_path, _ = QFileDialog.getSaveFileName(self, 'Save configuration', self._cwd, '*.yaml')
 
@@ -189,6 +213,11 @@ class FEQRASMapperMainWindow(QMainWindow, Ui_FEQRASMapperMainWindow):
 
             old_config = self._config
             self._config = new_config
+
+            config_file_dir, _ = os.path.split(config_file_path)
+            self._cwd = config_file_dir
+
+            self._last_config_file_path = config_file_path
 
             try:
                 self._update_ui()
@@ -251,7 +280,7 @@ class FEQRASMapperMainWindow(QMainWindow, Ui_FEQRASMapperMainWindow):
 
         if db_path:
 
-            self._config['RasMapper']['Export database path'] = db_path
+            self._config['RasMapper']['Export database path'] = os.path.join(db_path)
 
             db_dir, _ = os.path.split(db_path)
 
@@ -322,7 +351,7 @@ class FEQRASMapperMainWindow(QMainWindow, Ui_FEQRASMapperMainWindow):
 
         if new_ras_path:
 
-            self._config['RAS path'] = new_ras_path
+            self._config['RAS path'] = os.path.join(new_ras_path)
 
             # file_directory, _ = os.path.split(new_ras_path)
 
@@ -498,6 +527,7 @@ class FEQRASExportDlg(QDialog, Ui_FEQRASExportDlg):
         QCoreApplication.processEvents()
         feq_ras_mapper.export_tile_cache()
 
+        QCoreApplication.processEvents()
         self.computeMessageTextEdit.append("Export complete")
         self.pushButton.setText('OK')
         self.pushButton.setEnabled(True)

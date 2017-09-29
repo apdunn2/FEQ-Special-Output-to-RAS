@@ -94,6 +94,11 @@ class FEQRASMapper:
         self._ras_mapper = None
         ras.set_ras_path(self._config['RAS path'])
 
+        rasmap_file_path = self._config['RasMapper']['RASMAP file path']
+
+        self._ras_mapper = ras.RasMapper()
+        self._ras_mapper.load_rasmap_file(rasmap_file_path)
+
     def export_tile_cache(self):
 
         self._ras_mapper.export_tile_cache(self._export_options)
@@ -131,11 +136,6 @@ class FEQRASMapper:
 
         ras_elevation_df = feq_to_raser.get_ras_elevation(number_of_days=number_of_days, time_step=time_step)
         ras_flow_df = feq_to_raser.get_ras_flow(number_of_days=number_of_days, time_step=time_step)
-
-        rasmap_file_path = self._config['RasMapper']['RASMAP file path']
-
-        self._ras_mapper = ras.RasMapper()
-        self._ras_mapper.load_rasmap_file(rasmap_file_path)
 
         h5_file_name = self._ras_mapper.get_results_file(self._export_options.plan_name)
         ras_results = ras.Results(h5_file_name)
