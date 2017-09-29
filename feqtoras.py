@@ -98,6 +98,13 @@ class FEQRASMapper:
 
         self._ras_mapper.export_tile_cache(self._export_options)
 
+    def load_export_options(self):
+
+        self._export_options = self._ras_mapper.get_export_options()
+        self._export_options.plan_name = self._config['RasMapper']['Plan name']
+        self._export_options.file_name = self._config['RasMapper']['Export database path']
+        self._export_options.max_zoom = self._config['RasMapper']['Cache level']
+
     def load_special_output(self):
 
         special_output = []
@@ -130,11 +137,6 @@ class FEQRASMapper:
         self._ras_mapper = ras.RasMapper()
         self._ras_mapper.load_rasmap_file(rasmap_file_path)
 
-        self._export_options = self._ras_mapper.get_export_options()
-        self._export_options.plan_name = self._config['RasMapper']['Plan name']
-        self._export_options.file_name = self._config['RasMapper']['Export database path']
-        self._export_options.max_zoom = self._config['RasMapper']['Cache level']
-
         h5_file_name = self._ras_mapper.get_results_file(self._export_options.plan_name)
         ras_results = ras.Results(h5_file_name)
 
@@ -145,5 +147,6 @@ class FEQRASMapper:
 
         feq_ras_mapper = cls(config)
         feq_ras_mapper.load_special_output()
+        feq_ras_mapper.load_export_options()
         feq_ras_mapper.write_feq_results_to_ras()
         feq_ras_mapper.export_tile_cache()

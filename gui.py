@@ -491,6 +491,7 @@ class FEQRASExportDlg(QDialog, Ui_FEQRASExportDlg):
 
         self.computeMessageTextEdit.append("Writing FEQ time series to RAS results...")
         QCoreApplication.processEvents()
+        feq_ras_mapper.load_export_options()
         feq_ras_mapper.write_feq_results_to_ras()
 
         self.computeMessageTextEdit.append("Exporting tiles...")
@@ -501,6 +502,7 @@ class FEQRASExportDlg(QDialog, Ui_FEQRASExportDlg):
         self.pushButton.setText('OK')
         self.pushButton.setEnabled(True)
 
+    @pyqtSlot()
     def on_pushButton_pressed(self):
 
         if self.pushButton.text() == 'Begin Export':
