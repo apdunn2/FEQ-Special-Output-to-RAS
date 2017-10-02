@@ -114,47 +114,62 @@ class SpecialOutput:
         :param constituent_name:
         :param start_date:
         :param end_date:
+        :param number_of_days:
         :param time_step:
         :return:
         """
 
-        constituent_level = self._special_output_df.columns.names.index('value')
+        special_output = self.get_data(start_date, end_date, number_of_days, time_step)
+
+        constituent_level = special_output.columns.names.index('value')
 
         # get a cross section of the constituent values
-        constituent_df = self._special_output_df.xs(constituent_name, axis=1, level=constituent_level)
+        constituent_df = special_output.xs(constituent_name, axis=1, level=constituent_level)
+
+        return constituent_df
+
+    def get_data(self, start_date=None, end_date=None, number_of_days=None, time_step=None):
+        """
+
+        :param start_date:
+        :param end_date:
+        :param number_of_days:
+        :param time_step:
+        :return:
+        """
+
+        special_output = self._special_output_df.copy(deep=True)
+
+        if number_of_days and (start_date or end_date):
+            raise TypeError("start_date and end_date cannot be specified if number_of_days is")
 
         # if a time step is specified
         if time_step is not None:
 
             # get a series of the frequency requested
-            index_start_date = constituent_df.index[0].date()
-            index_end_date = constituent_df.index[-1]
+            index_start_date = special_output.index[0].date()
+            index_end_date = special_output.index[-1]
             interval_index = pd.date_range(index_start_date, index_end_date, freq=time_step)
 
             # get indices not included in the constituent DataFrame and create an empty DataFrame with the
             # missing indices
-            time_step_difference = interval_index.difference(constituent_df.index)
+            time_step_difference = interval_index.difference(special_output.index)
             empty_df = pd.DataFrame(index=time_step_difference)
 
             # add the empty DataFrame to the constituent DataFrame, sort, interpolate, resample as frequency,
             # and drop null values
-            constituent_df = constituent_df.append(empty_df)
-            constituent_df.sort_index(inplace=True)
-            constituent_df.interpolate('time', inplace=True)
-            constituent_df = constituent_df.resample(time_step).asfreq()
-            constituent_df = constituent_df.dropna(how='all')
+            special_output = special_output.append(empty_df)
+            special_output.sort_index(inplace=True)
+            special_output.interpolate('time', inplace=True)
+            special_output = special_output.resample(time_step).asfreq()
+            special_output = special_output.dropna(how='all')
 
         if number_of_days:
-            end_date = constituent_df.index[-1]
+            end_date = special_output.index[-1]
             start_date = end_date - pd.to_timedelta(number_of_days, 'days')
 
-        return constituent_df.truncate(start_date, end_date)
+        return special_output.truncate(start_date, end_date)
 
-    def get_data(self):
-        """
-
-        :return:
-        """
 
         return self._special_output_df.copy(deep=True)
 
