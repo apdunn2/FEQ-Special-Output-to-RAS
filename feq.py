@@ -170,9 +170,6 @@ class SpecialOutput:
 
         return special_output.truncate(start_date, end_date)
 
-
-        return self._special_output_df.copy(deep=True)
-
     def get_max_constituent_value(self, constituent_name, start_date=None, end_date=None):
         """
 
