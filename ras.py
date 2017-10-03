@@ -20,7 +20,7 @@ rasmapperlib = None
 mapperlibaddon = None
 
 RAS_PATH = None
-RAS_VERSION = None
+RAS_VERSION = '5.0.3'
 
 
 def set_ras_path(ras_path):
@@ -131,20 +131,20 @@ class ExportOptions:
 
 
 class RASControllerEventHandler:
-    _progress = None
+
     _message_client = None
 
     def set_message_client(self, message_client):
         self._message_client = message_client
 
     def OnComputeProgressEvent(self, Progress=defaultNamedNotOptArg):
-        self._progress = Progress
+        self._message_client.update_progress(Progress)
 
     def OnComputeMessageEvent(self, eventMessage=defaultNamedNotOptArg):
         self._message_client.add_message(eventMessage)
 
     def OnComputeComplete(self):
-        print("Compute complete!")
+        self._message_client.compute_complete()
 
 
 class RasMapper:
@@ -294,7 +294,7 @@ class RasMapper:
         self._load_results()
 
 
-class Results:
+class ResultsFile:
 
     def __init__(self, hdf5_file_name):
 
@@ -459,39 +459,50 @@ class SteadyFlowFile:
         lines.append("Profile Names={0}\n".format(self._get_profile_list()))
 
     def _add_reach_and_flows(self, lines):
-        unique_river_and_reach = self._get_unique_river_and_reach()
-        for river, reach in unique_river_and_reach:
-            river_and_reach = river + ',' + reach
-            cross_sections = self._constituent_df[river][reach].columns.values.astype('float')
-            max_index = cross_sections.argmax()
-            upstream_xs = self._constituent_df[river][reach].columns[max_index]
-            lines.append("River Rch & RM={0: <27},{1}\n{2}\n".format(
-                         river_and_reach, upstream_xs, self._create_dummy_flows()))
+
+        max_number_of_columns = 10
+        number_of_flow_values = self._get_number_of_profiles()
+        number_of_rows = number_of_flow_values // max_number_of_columns + 1
+
+        # get the number of full rows
+        number_of_columns = [max_number_of_columns] * (number_of_rows - 1)
+
+        # append the last row with the number of remaining columns
+        number_of_columns.append(number_of_flow_values % max_number_of_columns)
+
+        column_indices = np.cumsum(np.array([0] + number_of_columns))
+
+        section_lines = []
+        section_heading_format = 'River Rch & RM={},{},{}\n'
+
+        flow_value_format = '{:8g}'
+
+        for river, reach, river_mile, _ in self._constituent_df.columns.values:
+            section_heading = section_heading_format.format(river, reach, river_mile)
+            section_lines.append(section_heading)
+            flow_series = self._constituent_df[(river, reach, river_mile, 'Flow')]
+            for row_number in range(number_of_rows):
+                row_flow_values = flow_series[column_indices[row_number]:column_indices[row_number + 1]].values
+                row_flow_format = flow_value_format * number_of_columns[row_number]
+                row_formatted_flow = row_flow_format.format(*row_flow_values)
+                section_lines.append(row_formatted_flow + '\n')
+
+        lines.extend(section_lines)
 
     def _add_reach_boundary_conditions(self, lines):
-        unique_river_and_reach = self._get_unique_river_and_reach()
-        for river, reach in unique_river_and_reach:
+        for river, reach in self._get_unique_river_and_reach():
             river_and_reach = river + ',' + reach
             lines.append("Boundary for River Rch & Prof#={0: <27}, "
                          "{1}\nUp Type= 0\nDn Type= 3\nDn Slope=0.001\n".format(river_and_reach, 1))
 
     def _add_water_surface_elevations(self, lines):
-        for river, reach, cross_section in self._constituent_df.columns.values:
+        for river, reach, cross_section, _ in self._constituent_df.columns.values:
             for profile_index in range(self._get_number_of_profiles()):
-                    water_surface_elevation = self._constituent_df.ix[profile_index, (river, reach, cross_section)]
+                    water_surface_elevation = self._constituent_df.ix[profile_index,
+                                                                      (river, reach, cross_section, 'Elev')]
                     lines.append("Set Internal Change={0: <16},"
                                  "{1: <16},{2: <8}".format(river, reach, cross_section))
                     lines.append(", {0} , 3 , {1}\n".format(profile_index + 1, water_surface_elevation))
-
-    def _create_dummy_flows(self):
-        dummy_flows = ""
-        count = 1
-        for i in range(self._get_number_of_profiles()):
-            dummy_flows += "     100"
-            if count % 10 == 0:
-                dummy_flows += "\n"
-            count += 1
-        return dummy_flows
 
     def _get_number_of_profiles(self):
         return self._constituent_df.shape[0]
@@ -512,7 +523,7 @@ class SteadyFlowFile:
         :return:
         """
 
-        river_and_reach_columns = self._constituent_df.columns.droplevel(2)
+        river_and_reach_columns = self._constituent_df.columns.droplevel(3).droplevel(2)
         unique_combinations = river_and_reach_columns.unique()
         return unique_combinations.values
 
