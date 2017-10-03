@@ -1,17 +1,12 @@
+import warnings
+
 import numpy as np
 import pandas as pd
 
+from hydraulic import HydraulicTimeSeries
 
-class SpecialOutput:
 
-    def __init__(self, special_output_df):
-        """Do not use __init__() directly. Use FEQSpecialOutput.read_special_output_file() to create an instance from
-         an FEQ special output file.
-
-        :param special_output_df:
-        """
-
-        self._special_output_df = special_output_df
+class SpecialOutput(HydraulicTimeSeries):
 
     @classmethod
     def _create_special_output_df(cls, special_output_df, river_name, reach_name):
@@ -103,91 +98,10 @@ class SpecialOutput:
         :param other:
         :return:
         """
+        # TODO: Deprecate method
+        warnings.warn("add_special_output() is deprecated. Use combine_time_series() instead.", DeprecationWarning)
 
-        new_special_output_df = pd.concat([self._special_output_df, other.get_data()], axis=1)
-
-        return type(self)(new_special_output_df)
-
-    def get_constituent(self, constituent_name, start_date=None, end_date=None, number_of_days=None, time_step=None):
-        """
-
-        :param constituent_name:
-        :param start_date:
-        :param end_date:
-        :param number_of_days:
-        :param time_step:
-        :return:
-        """
-
-        special_output = self.get_data(start_date, end_date, number_of_days, time_step)
-
-        constituent_level = special_output.columns.names.index('value')
-
-        # get a cross section of the constituent values
-        constituent_df = special_output.xs(constituent_name, axis=1, level=constituent_level)
-
-        return constituent_df
-
-    def get_data(self, start_date=None, end_date=None, number_of_days=None, time_step=None):
-        """
-
-        :param start_date:
-        :param end_date:
-        :param number_of_days:
-        :param time_step:
-        :return:
-        """
-
-        special_output = self._special_output_df.copy(deep=True)
-
-        if number_of_days and (start_date or end_date):
-            raise TypeError("start_date and end_date cannot be specified if number_of_days is")
-
-        # if a time step is specified
-        if time_step is not None:
-
-            # get a series of the frequency requested
-            index_start_date = special_output.index[0].date()
-            index_end_date = special_output.index[-1]
-            interval_index = pd.date_range(index_start_date, index_end_date, freq=time_step)
-
-            # get indices not included in the constituent DataFrame and create an empty DataFrame with the
-            # missing indices
-            time_step_difference = interval_index.difference(special_output.index)
-            empty_df = pd.DataFrame(index=time_step_difference)
-
-            # add the empty DataFrame to the constituent DataFrame, sort, interpolate, resample as frequency,
-            # and drop null values
-            special_output = special_output.append(empty_df)
-            special_output.sort_index(inplace=True)
-            special_output.interpolate('time', inplace=True)
-            special_output = special_output.resample(time_step).asfreq()
-            special_output = special_output.dropna(how='all')
-
-        if number_of_days:
-            end_date = special_output.index[-1]
-            start_date = end_date - pd.to_timedelta(number_of_days, 'days')
-
-        return special_output.truncate(start_date, end_date)
-
-    def get_max_constituent_value(self, constituent_name, start_date=None, end_date=None):
-        """
-
-        :param constituent_name:
-        :param start_date:
-        :param end_date:
-        :return:
-        """
-
-        constituent_df = self.get_constituent(constituent_name, start_date, end_date)
-
-        max_constituent_values = pd.DataFrame(constituent_df.max())
-
-        max_constituent_values = max_constituent_values.transpose()
-
-        max_constituent_values.index = ['Maximum_' + constituent_name]
-
-        return max_constituent_values
+        return self.combine_time_series(other)
 
     @classmethod
     def read_special_output_file(cls, spec_output_file_path, river_name, reach_name):
