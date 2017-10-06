@@ -151,8 +151,7 @@ class RasMapper:
 
     def __init__(self):
 
-        self._doc = XmlDocument()
-        self._results_group = rasmapperlib.ResultsGroup()
+        self._ras_mapper = rasmapperlib.RASMapper()
 
         self._setup_gdal()
 
@@ -207,28 +206,9 @@ class RasMapper:
         gdal_plugin_directory = os.path.join(gdal_tool_directory, 'gdalplugins')
         System.Environment.SetEnvironmentVariable('GDAL_DRIVER_PATH', gdal_plugin_directory)
 
-    def _load_layers(self, parent, xml_node):
-
-        if xml_node is None:
-            return
-
-        xml_node_list = xml_node.SelectNodes("Layer")
-
-        for xmlNode in xml_node_list:
-            layer = rasmapperlib.RASMapper.LoadLayer(parent, xmlNode)
-            if layer is not None:
-                parent.Nodes.Add(layer)
-                layer.XMLLoad(xmlNode)
-                self._load_layers(layer, xmlNode)
-
     def _load_results(self):
 
-        self._results_group = rasmapperlib.ResultsGroup()
-
-        xml_node_1 = self._doc.SelectSingleNode('RASMapper')
-        results_node = xml_node_1.SelectSingleNode(self._results_group.XMLNodeName)
-
-        self._load_layers(self._results_group, results_node)
+        self._results_group = self._ras_mapper.ResultsGroup
 
     def get_depth_map(self, plan_name):
 
@@ -284,12 +264,8 @@ class RasMapper:
 
     def load_rasmap_file(self, rasmap_file_path):
 
-        self._doc.Load(rasmap_file_path)
-
         rasmapperlib.SharedData.RasMapFilename = rasmap_file_path
-
-        xml_node_1 = self._doc.SelectSingleNode('RASMapper')
-        self._set_projection_path(xml_node_1)
+        self._ras_mapper.LoadRASMapFile()
 
         self._load_results()
 
