@@ -6,15 +6,15 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>686</width>
-    <height>312</height>
+    <width>867</width>
+    <height>358</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string>FEQ RAS mapper</string>
   </property>
   <widget class="QWidget" name="centralwidget">
-   <layout class="QFormLayout" name="formLayout_3">
+   <layout class="QGridLayout" name="gridLayout">
     <item row="0" column="0">
      <layout class="QHBoxLayout" name="horizontalLayout">
       <item>
@@ -33,23 +33,83 @@
       </item>
      </layout>
     </item>
-    <item row="0" column="1">
-     <layout class="QHBoxLayout" name="horizontalLayout_3">
-      <item>
-       <widget class="QPushButton" name="rasDirPushButton">
-        <property name="text">
-         <string>RAS Directory</string>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QLineEdit" name="rasDirLineEdit">
-        <property name="readOnly">
-         <bool>true</bool>
-        </property>
-       </widget>
-      </item>
-     </layout>
+    <item row="0" column="1" rowspan="2">
+     <widget class="QGroupBox" name="RASGroupBox">
+      <property name="title">
+       <string>RAS</string>
+      </property>
+      <layout class="QFormLayout" name="formLayout_3">
+       <item row="0" column="0">
+        <widget class="QPushButton" name="rasDirPushButton">
+         <property name="text">
+          <string>RAS Directory</string>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="1">
+        <widget class="QLineEdit" name="rasDirLineEdit">
+         <property name="readOnly">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="0">
+        <widget class="QPushButton" name="rasProjectPushButton">
+         <property name="text">
+          <string>RAS Project</string>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="1">
+        <widget class="QLineEdit" name="rasProjectLineEdit">
+         <property name="readOnly">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+       <item row="2" column="0">
+        <widget class="QLabel" name="planNameLabel">
+         <property name="enabled">
+          <bool>false</bool>
+         </property>
+         <property name="text">
+          <string>Plan Name</string>
+         </property>
+        </widget>
+       </item>
+       <item row="2" column="1">
+        <widget class="QComboBox" name="planNameComboBox">
+         <property name="enabled">
+          <bool>false</bool>
+         </property>
+        </widget>
+       </item>
+       <item row="3" column="0" colspan="2">
+        <layout class="QHBoxLayout" name="horizontalLayout_3">
+         <item>
+          <widget class="QPushButton" name="updateResultsPushButton">
+           <property name="enabled">
+            <bool>false</bool>
+           </property>
+           <property name="text">
+            <string>Update Results</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="viewResultsPushButton">
+           <property name="enabled">
+            <bool>false</bool>
+           </property>
+           <property name="text">
+            <string>View Results</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </item>
+      </layout>
+     </widget>
     </item>
     <item row="1" column="0">
      <widget class="QGroupBox" name="feqSpecOutputGroupBox">
@@ -104,7 +164,36 @@
       </layout>
      </widget>
     </item>
-    <item row="1" column="1">
+    <item row="2" column="0">
+     <widget class="QGroupBox" name="groupBox_3">
+      <property name="title">
+       <string>Export Time Series</string>
+      </property>
+      <layout class="QFormLayout" name="formLayout">
+       <item row="0" column="0">
+        <widget class="QLabel" name="label">
+         <property name="text">
+          <string>Number of Days</string>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="0">
+        <widget class="QLabel" name="label_2">
+         <property name="text">
+          <string>Time Step</string>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="1">
+        <widget class="QLineEdit" name="numDaysLineEdit"/>
+       </item>
+       <item row="1" column="1">
+        <widget class="QComboBox" name="timeStepComboBox"/>
+       </item>
+      </layout>
+     </widget>
+    </item>
+    <item row="2" column="1" rowspan="2">
      <widget class="QGroupBox" name="groupBox_2">
       <property name="title">
        <string>Map Export</string>
@@ -151,79 +240,45 @@
        <item row="2" column="1">
         <widget class="QComboBox" name="cacheLevelComboBox"/>
        </item>
-       <item row="3" column="0">
-        <widget class="QLabel" name="planNameLabel">
-         <property name="enabled">
-          <bool>false</bool>
-         </property>
-         <property name="text">
-          <string>Plan Name</string>
-         </property>
-        </widget>
-       </item>
        <item row="3" column="1">
-        <widget class="QComboBox" name="planNameComboBox">
+        <widget class="QPushButton" name="exportTilesPushButton">
          <property name="enabled">
           <bool>false</bool>
          </property>
+         <property name="text">
+          <string>Export Tiles for Web Viewing</string>
+         </property>
         </widget>
        </item>
       </layout>
      </widget>
     </item>
-    <item row="2" column="0">
-     <widget class="QGroupBox" name="groupBox_3">
-      <property name="title">
-       <string>Export Time Series</string>
+    <item row="3" column="0">
+     <spacer name="verticalSpacer">
+      <property name="orientation">
+       <enum>Qt::Vertical</enum>
       </property>
-      <layout class="QFormLayout" name="formLayout">
-       <item row="0" column="0">
-        <widget class="QLabel" name="label">
-         <property name="text">
-          <string>Number of Days</string>
-         </property>
-         <property name="buddy">
-          <cstring>numDaysLineEdit</cstring>
-         </property>
-        </widget>
-       </item>
-       <item row="0" column="1">
-        <widget class="QLineEdit" name="numDaysLineEdit"/>
-       </item>
-       <item row="1" column="0">
-        <widget class="QLabel" name="label_2">
-         <property name="text">
-          <string>Time Step</string>
-         </property>
-         <property name="buddy">
-          <cstring>timeStepComboBox</cstring>
-         </property>
-        </widget>
-       </item>
-       <item row="1" column="1">
-        <widget class="QComboBox" name="timeStepComboBox"/>
-       </item>
-      </layout>
-     </widget>
-    </item>
-    <item row="2" column="1">
-     <widget class="QPushButton" name="exportTilesPushButton">
-      <property name="enabled">
-       <bool>false</bool>
+      <property name="sizeHint" stdset="0">
+       <size>
+        <width>20</width>
+        <height>52</height>
+       </size>
       </property>
-      <property name="text">
-       <string>Export Tiles for Web Viewing</string>
-      </property>
-     </widget>
+     </spacer>
     </item>
    </layout>
+   <zorder>RASGroupBox</zorder>
+   <zorder>feqSpecOutputGroupBox</zorder>
+   <zorder>groupBox_2</zorder>
+   <zorder>groupBox_3</zorder>
+   <zorder>verticalSpacer</zorder>
   </widget>
   <widget class="QMenuBar" name="menubar">
    <property name="geometry">
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>686</width>
+     <width>867</width>
      <height>21</height>
     </rect>
    </property>
@@ -270,8 +325,6 @@
   <tabstop>editSpecOutputPushButton</tabstop>
   <tabstop>clearSpecOutputPushButton</tabstop>
   <tabstop>specOutputListWidget</tabstop>
-  <tabstop>numDaysLineEdit</tabstop>
-  <tabstop>timeStepComboBox</tabstop>
   <tabstop>rasDirPushButton</tabstop>
   <tabstop>rasDirLineEdit</tabstop>
   <tabstop>rasmapFilePushButton</tabstop>
@@ -279,7 +332,6 @@
   <tabstop>exportDBPushButton</tabstop>
   <tabstop>exportDBLineEdit</tabstop>
   <tabstop>cacheLevelComboBox</tabstop>
-  <tabstop>exportTilesPushButton</tabstop>
  </tabstops>
  <resources/>
  <connections/>

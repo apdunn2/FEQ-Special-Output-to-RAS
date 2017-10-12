@@ -6,6 +6,7 @@ import clr
 import numpy as np
 import pandas as pd
 import pythoncom
+import win32com.client
 
 clr.AddReference('System.Windows')
 
@@ -132,7 +133,18 @@ class ExportOptions:
 
 class RASControllerEventHandler:
 
+    is_cancellable = True
+
     _message_client = None
+
+    def cancel(self):
+        self.Compute_Cancel()
+
+    def compute_complete(self):
+        return self.Compute_Complete()
+
+    def start_compute(self):
+        self.Compute_CurrentPlan(None, None, True)
 
     def set_message_client(self, message_client):
         self._message_client = message_client
@@ -536,3 +548,6 @@ class SteadyFlowFile:
 
         with open(output_file_path, "w+") as f:
             f.writelines(lines)
+
+
+ras_controller = win32com.client.DispatchWithEvents('RAS503.HECRASCONTROLLER', RASControllerEventHandler)
