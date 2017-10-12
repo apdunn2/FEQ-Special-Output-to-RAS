@@ -1,16 +1,147 @@
 import copy
 import os
+import time
 
 import pandas as pd
 import yaml
+
 from PyQt5.QtCore import pyqtSlot, Qt, QCoreApplication
 from PyQt5.QtWidgets import QDialog, QDialogButtonBox, QFileDialog, QMainWindow, QMessageBox
 
+import feq
 import feqtoras
 import ras
-from ui_feqrasexportdlg import Ui_FEQRASExportDlg
+from ui_computedlg import Ui_Compute
 from ui_feqrasmapper import Ui_FEQRASMapperMainWindow
 from ui_openspecoutputdlg import Ui_openSpecOutputDlg
+from ui_rasresultsviewdialog import Ui_RASResultsViewDialog
+from ui_tilesexportdlg import Ui_TilesExportDlg
+
+
+class ComputeDlg(QDialog, Ui_Compute):
+
+    def __init__(self, computable_object, parent=None):
+        super().__init__(parent)
+        self.setupUi(self)
+
+        self._compute_cancelled = False
+
+        self._computable_object = computable_object
+        self._computable_object.set_message_client(self)
+
+        if not self._computable_object.is_cancellable:
+            self.pushButton.setEnabled(False)
+
+        self.start_compute()
+
+    def add_message(self, message):
+
+        self.textBrowser.append(message)
+
+    @pyqtSlot()
+    def on_pushButton_pressed(self):
+
+        if self.pushButton.text() == 'Cancel':
+            self._compute_cancelled = True
+            self._computable_object.cancel()
+            self.pushButton.setText('OK')
+        elif self.pushButton.text() == 'OK':
+            if self._compute_cancelled:
+                self.reject()
+            else:
+                self.accept()
+
+    def start_compute(self):
+
+        # compute_thread = Thread(target=self._computable_object.start_compute)
+        # compute_thread.start()
+        self._computable_object.start_compute()
+
+        while not self._computable_object.compute_complete():
+            QCoreApplication.processEvents()
+            time.sleep(0.1)
+
+        self.pushButton.setEnabled(True)
+        self.pushButton.setText('OK')
+
+
+class DummyRASMessageClient:
+
+    def __init__(self, ras_controller, number_of_tabs=0):
+
+        ras_controller.set_message_client(self)
+        self._number_of_tabs = number_of_tabs
+
+    def update_progress(self, progress):
+        print('\t'*self._number_of_tabs + progress)
+
+    def add_message(self, event_message):
+        print('\t'*self._number_of_tabs + event_message)
+
+    def compute_complete(self):
+        print('\t'*self._number_of_tabs + 'Compute complete!')
+
+
+class FEQRASExportDlg(QDialog, Ui_TilesExportDlg):
+
+    def __init__(self, config, parent=None):
+        super().__init__(parent)
+        self.setupUi(self)
+
+        # remove the context help button
+        window_flags = self.windowFlags()
+        window_flags &= ~Qt.WindowContextHelpButtonHint
+        self.setWindowFlags(Qt.WindowFlags(window_flags))
+
+        self._compute_cancelled = False
+        self._compute_started = False
+
+        self._config = config
+
+    def add_message(self, message):
+        self.computeMessageTextEdit.append(message)
+        QCoreApplication.processEvents()
+
+    def closeEvent(self, event):
+        if self._compute_started:
+            event.ignore()
+        else:
+            super().closeEvent(event)
+
+    def begin_export(self):
+
+        ras_mapper = ras.RasMapper()
+        ras_mapper.load_rasmap_file(self._config['RasMapper']['RASMAP file path'])
+
+        export_options = ras_mapper.get_export_options()
+        export_options.file_name = self._config['RasMapper']['Export database path']
+        export_options.plan_name = self._config['Plan name']
+        export_options.max_zoom = self._config['RasMapper']['Cache level']
+
+        self.computeMessageTextEdit.append("Exporting tiles...")
+        QCoreApplication.processEvents()
+        ras_mapper.export_tile_cache(export_options)
+
+        QCoreApplication.processEvents()
+        self.computeMessageTextEdit.append("Export complete")
+        self.pushButton.setText('OK')
+        self.pushButton.setEnabled(True)
+
+    @pyqtSlot()
+    def on_pushButton_pressed(self):
+
+        if self.pushButton.text() == 'Begin Export':
+            self.pushButton.setText('Cancel')
+            self.pushButton.setEnabled(False)
+            self._compute_started = True
+            self.begin_export()
+        elif self.pushButton.text() == 'Cancel':
+            pass
+        elif self.pushButton.text() == 'OK':
+            if self._compute_cancelled:
+                self.reject()
+            else:
+                self.accept()
 
 
 class FEQRASMapperMainWindow(QMainWindow, Ui_FEQRASMapperMainWindow):
@@ -22,13 +153,14 @@ class FEQRASMapperMainWindow(QMainWindow, Ui_FEQRASMapperMainWindow):
 
         self._config = self._get_empty_config()
 
+        self._ras_controller = ras.ras_controller
+
         self._setup_ui()
 
         self._cwd = os.path.expanduser('~/Documents')
         self._last_config_file_path = None
         self._node_table = None
         self._node_table_path = None
-        self._ras_mapper = None
 
     @staticmethod
     def _check_node_table_required_headers(node_table):
@@ -38,24 +170,30 @@ class FEQRASMapperMainWindow(QMainWindow, Ui_FEQRASMapperMainWindow):
 
     def _check_export_ready(self):
 
-        node_table_path_isfile = self._config['Node table'] is not None and os.path.isfile(self._config['Node table'])
-        ras_path_isdir = self._config['RAS path'] is not None and os.path.isdir(self._config['RAS path'])
-        special_output_isnotempty = len(self._config['Special output']) > 0
-        number_of_days_isnotnone = self._config['Export time series']['Number of days'] is not None
         export_db_isnotnone = self._config['RasMapper']['Export database path'] is not None
-        plan_name_isnotnone = self._config['RasMapper']['Plan name'] is not None
+        plan_name_isnotnone = self._config['Plan name'] is not None
         rasmap_file_isfile = self._config['RasMapper']['RASMAP file path'] is not None \
                              and os.path.isfile(self._config['RasMapper']['RASMAP file path'])
 
-        export_ready = node_table_path_isfile \
-                       and ras_path_isdir \
-                       and special_output_isnotempty \
-                       and number_of_days_isnotnone \
-                       and export_db_isnotnone \
+        export_ready = export_db_isnotnone \
                        and plan_name_isnotnone \
                        and rasmap_file_isfile
 
         return export_ready
+
+    def _check_update_results_ready(self):
+
+        ras_path_isdir = self._config['RAS path'] is not None and os.path.isdir(self._config['RAS path'])
+        ras_project_isopen = self._config['RAS project file'] == self._ras_controller.Project_Current()
+        special_output_isnotempty = len(self._config['Special output']) > 0
+        number_of_days_isnotnone = self._config['Export time series']['Number of days'] is not None
+
+        update_results_ready = ras_path_isdir \
+                               and ras_project_isopen \
+                               and special_output_isnotempty \
+                               and number_of_days_isnotnone
+
+        return update_results_ready
 
     @staticmethod
     def _get_empty_config():
@@ -72,9 +210,10 @@ class FEQRASMapperMainWindow(QMainWindow, Ui_FEQRASMapperMainWindow):
                         'Special output': {},
                         'Export time series': {'Number of days': None,
                                                'Time step': '1H'},
+                        'RAS project file': None,
+                        'Plan name': None,
                         'RasMapper': {'Cache level': 12,
                                       'Export database path': None,
-                                      'Plan name': None,
                                       'RASMAP file path': None}
                         }
 
@@ -125,6 +264,8 @@ class FEQRASMapperMainWindow(QMainWindow, Ui_FEQRASMapperMainWindow):
         time_step_index = self.timeStepComboBox.findText(self._config['Export time series']['Time step'])
         self.timeStepComboBox.setCurrentIndex(time_step_index)
 
+        ras.set_ras_version('5.0.3')
+
         # update the ras path info
         self.rasDirLineEdit.setText(self._config['RAS path'])
         if self._config['RAS path']:
@@ -137,25 +278,41 @@ class FEQRASMapperMainWindow(QMainWindow, Ui_FEQRASMapperMainWindow):
         db_file = self._config['RasMapper']['Export database path']
         self.exportDBLineEdit.setText(db_file)
 
-        cache_level_index = self.cacheLevelComboBox.findText(str(self._config['RasMapper']['Cache level']))
-        self.cacheLevelComboBox.setCurrentIndex(cache_level_index)
-
+        # update plan name info
         self.planNameComboBox.clear()
-        if self._config['RAS path'] and self._config['RasMapper']['RASMAP file path']:
-            self.planNameLabel.setEnabled(True)
+        if self._config['RAS project file']:
+
+            self.rasProjectLineEdit.setText(self._config['RAS project file'])
+
             self.planNameComboBox.setEnabled(True)
-            self._ras_mapper = ras.RasMapper()
-            self._ras_mapper.load_rasmap_file(self._config['RasMapper']['RASMAP file path'])
-            plan_names = self._ras_mapper.get_plan_names()
+            self.planNameLabel.setEnabled(True)
+            self._ras_controller.Project_Open(self._config['RAS project file'])
+            plan_counts, plan_names, _ = self._ras_controller.Plan_Names(None, None, False)
             self.planNameComboBox.addItems(plan_names)
-            if self._config['RasMapper']['Plan name']:
-                plan_name_index = self.planNameComboBox.findText(self._config['RasMapper']['Plan name'])
+            if self._config['Plan name']:
+                plan_name_index = self.planNameComboBox.findText(self._config['Plan name'])
                 self.planNameComboBox.setCurrentIndex(plan_name_index)
             else:
-                self._config['Rasmapper']['Plan name'] = self.planNameComboBox.currentText()
+                self._config['Plan name'] = self.planNameComboBox.currentText()
+            self._ras_controller.Plan_SetCurrent(self._config['Plan name'])
         else:
             self.planNameLabel.setEnabled(False)
             self.planNameComboBox.setEnabled(False)
+            self.rasProjectLineEdit.clear()
+
+        if self._check_update_results_ready():
+            self.updateResultsPushButton.setEnabled(True)
+        else:
+            self.updateResultsPushButton.setEnabled(False)
+
+        if self._config['RAS project file'] == self._ras_controller.Project_Current():
+            self.viewResultsPushButton.setEnabled(True)
+        else:
+            self.viewResultsPushButton.setEnabled(False)
+
+        # cache level
+        cache_level_index = self.cacheLevelComboBox.findText(str(self._config['RasMapper']['Cache level']))
+        self.cacheLevelComboBox.setCurrentIndex(cache_level_index)
 
         if self._check_export_ready():
             self.exportTilesPushButton.setEnabled(True)
@@ -169,7 +326,7 @@ class FEQRASMapperMainWindow(QMainWindow, Ui_FEQRASMapperMainWindow):
         self._update_ui()
 
     @pyqtSlot()
-    def on_actoinSave_triggered(self):
+    def on_actionSave_triggered(self):
 
         if self._last_config_file_path:
 
@@ -184,6 +341,7 @@ class FEQRASMapperMainWindow(QMainWindow, Ui_FEQRASMapperMainWindow):
                     yaml.dump(self._config, f, default_flow_style=False)
 
                 config_file_dir, _ = os.path.split(config_file_path)
+                self._last_config_file_path = config_file_path
 
                 self._cwd = config_file_dir
 
@@ -280,9 +438,13 @@ class FEQRASMapperMainWindow(QMainWindow, Ui_FEQRASMapperMainWindow):
 
         if db_path:
 
-            self._config['RasMapper']['Export database path'] = os.path.join(db_path)
+            db_path = db_path.replace('/', '\\')
+
+            self._config['RasMapper']['Export database path'] = db_path
 
             db_dir, _ = os.path.split(db_path)
+
+            self._cwd = db_dir
 
             self._update_ui()
 
@@ -298,6 +460,8 @@ class FEQRASMapperMainWindow(QMainWindow, Ui_FEQRASMapperMainWindow):
         file_path, _ = QFileDialog.getOpenFileName(self, 'Select Node Table File', self._cwd, filter='*.csv')
 
         if file_path:
+
+            file_path = file_path.replace('/', '\\')
 
             node_table = pd.read_csv(file_path)
 
@@ -337,7 +501,7 @@ class FEQRASMapperMainWindow(QMainWindow, Ui_FEQRASMapperMainWindow):
     @pyqtSlot("int")
     def on_planNameComboBox_currentIndexChanged(self, index):
 
-        self._config['RasMapper']['Plan name'] = self.planNameComboBox.itemText(index)
+        self._config['Plan name'] = self.planNameComboBox.itemText(index)
 
     @pyqtSlot()
     def on_rasDirPushButton_clicked(self):
@@ -353,9 +517,20 @@ class FEQRASMapperMainWindow(QMainWindow, Ui_FEQRASMapperMainWindow):
 
             self._config['RAS path'] = os.path.join(new_ras_path)
 
-            # file_directory, _ = os.path.split(new_ras_path)
+            self._update_ui()
 
-            # self._cwd = file_directory
+    @pyqtSlot()
+    def on_rasProjectPushButton_clicked(self):
+
+        ras_project_file, _ = QFileDialog.getOpenFileName(self, 'Select HEC-RAS project file', self._cwd, '*.prj')
+
+        if ras_project_file:
+
+            ras_project_file = ras_project_file.replace('/', '\\')
+
+            self._config['RAS project file'] = ras_project_file
+
+            self._cwd, _ = os.path.split(ras_project_file)
 
             self._update_ui()
 
@@ -371,7 +546,9 @@ class FEQRASMapperMainWindow(QMainWindow, Ui_FEQRASMapperMainWindow):
 
         if rasmap_file_path:
 
-            self._config['RasMapper']['RASMAP file path'] = rasmap_file_path
+            rasmap_file_path = rasmap_file_path.replace('/', '\\')
+
+            self._config['RasMapper']['RASMAP file path'] = rasmap_file_path.replace('/', '\\')
 
             rasmap_dir, _ = os.path.split(rasmap_file_path)
 
@@ -383,6 +560,65 @@ class FEQRASMapperMainWindow(QMainWindow, Ui_FEQRASMapperMainWindow):
     def on_timeStepComboBox_currentIndexChanged(self, index):
 
         self._config['Export time series']['Time step'] = self.timeStepComboBox.itemText(index)
+
+    @pyqtSlot()
+    def on_updateResultsPushButton_clicked(self):
+
+        print("Loading special output...")
+
+        special_output = []
+
+        for reach, reach_config in self._config['Special output'].items():
+            river = reach_config['River']
+            spec_output_path = reach_config['File location']
+            print("\tSpecial output file: " + spec_output_path)
+            special_output.append(feq.SpecialOutput.read_special_output_file(spec_output_path, river, reach))
+
+        feq_special_output = special_output[0]
+
+        for spec_out in special_output[1:]:
+            feq_special_output = feq_special_output.add_special_output(spec_out)
+
+        print("Converting FEQ nodes to RAS cross sections...")
+
+        node_file_path = self._config['Node table']
+        feq_to_raser = feqtoras.FEQToRAS(node_file_path, feq_special_output)
+
+        time_step = self._config['Export time series']['Time step']
+        number_of_days = self._config['Export time series']['Number of days']
+
+        print("Creating interpolated time series...")
+
+        ras_time_series = feq_to_raser.get_ras_time_series()
+        ras_data = ras_time_series.get_data(number_of_days=number_of_days, time_step=time_step)
+
+        print("Writing steady flow file...")
+
+        ras_steady_flow_file = ras.SteadyFlowFile(ras_data, self._config['Plan name'])
+
+        flow_file_name = self._ras_controller.CurrentSteadyFile()
+        ras_steady_flow_file.write_flow_file(flow_file_name)
+
+        print("Running RAS...")
+
+        self._ras_controller.Project_Open(self._config['RAS project file'])
+        message_client = DummyRASMessageClient(self._ras_controller, 5)
+
+        self._ras_controller.Compute_HideComputationWindow()
+        compute_success, nmsg, ras_messages, blocking_mode = self._ras_controller.Compute_CurrentPlan(None, None, True)
+        if not compute_success:
+            print("RAS computed failed!")
+        else:
+            print("RAS compute succeeded!")
+
+        print("RAS messages:")
+        for message in ras_messages:
+            print("\t" + message)
+
+    @pyqtSlot()
+    def on_viewResultsPushButton_clicked(self):
+        view_results_dialog = RasResultsViewDialog(self._ras_controller, self)
+        view_results_dialog.exec_()
 
 
 class OpenSpecOutputDlg(QDialog, Ui_openSpecOutputDlg):
@@ -488,9 +724,10 @@ class OpenSpecOutputDlg(QDialog, Ui_openSpecOutputDlg):
         return self._reach_config
 
 
-class FEQRASExportDlg(QDialog, Ui_FEQRASExportDlg):
+class RasResultsViewDialog(QDialog, Ui_RASResultsViewDialog):
 
-    def __init__(self, config, parent=None):
+    def __init__(self, ras_controller, parent=None):
+
         super().__init__(parent)
         self.setupUi(self)
 
@@ -499,50 +736,63 @@ class FEQRASExportDlg(QDialog, Ui_FEQRASExportDlg):
         window_flags &= ~Qt.WindowContextHelpButtonHint
         self.setWindowFlags(Qt.WindowFlags(window_flags))
 
-        self._compute_cancelled = False
+        self._ras_controller = ras_controller
 
-        self._config = config
+        self._setup_ui()
 
-    def add_message(self, message):
-        self.computeMessageTextEdit.append(message)
-        QCoreApplication.processEvents()
+    def _setup_ui(self):
 
-    def closeEvent(self, event):
-        event.ignore()
+        _, river_names = self._ras_controller.Geometry_GetRivers(None, None)
+        self.riverComboBox.addItems(river_names)
 
-    def begin_export(self):
+        self._update_reaches(1)
+        self._update_river_stations(1, 1)
 
-        feq_ras_mapper = feqtoras.FEQRASMapper(self._config)
+    def _update_reaches(self, river_number):
+        self.reachComboBox.clear()
+        _, _, reach_names = self._ras_controller.Geometry_GetReaches(river_number, None, None)
+        self.reachComboBox.addItems(reach_names)
 
-        self.computeMessageTextEdit.append("Loading special output...")
-        QCoreApplication.processEvents()
-        feq_ras_mapper.load_special_output()
+    def _update_river_stations(self, river_number, reach_number):
+        self.riverStationComboBox.clear()
+        _, _, _, cross_sections, _ = self._ras_controller.Geometry_GetNodes(river_number, reach_number,
+                                                                            None, None, None)
+        try:
+            self.riverStationComboBox.addItems(cross_sections)
+        except TypeError:
+            pass
 
-        self.computeMessageTextEdit.append("Writing FEQ time series to RAS results...")
-        QCoreApplication.processEvents()
-        feq_ras_mapper.load_export_options()
-        feq_ras_mapper.write_feq_results_to_ras()
+    @pyqtSlot("int")
+    def on_reachComboBox_currentIndexChanged(self, index):
+        river_number = self.riverComboBox.currentIndex() + 1
+        self._update_river_stations(river_number, index + 1)
 
-        self.computeMessageTextEdit.append("Exporting tiles...")
-        QCoreApplication.processEvents()
-        feq_ras_mapper.export_tile_cache()
-
-        QCoreApplication.processEvents()
-        self.computeMessageTextEdit.append("Export complete")
-        self.pushButton.setText('OK')
-        self.pushButton.setEnabled(True)
+    @pyqtSlot("int")
+    def on_riverComboBox_currentIndexChanged(self, index):
+        self._update_reaches(index+1)
+        self._update_river_stations(index+1, 1)
 
     @pyqtSlot()
-    def on_pushButton_pressed(self):
+    def on_openRASMapperPushButton_clicked(self):
+        self._ras_controller.ShowRasMapper()
 
-        if self.pushButton.text() == 'Begin Export':
-            self.pushButton.setText('Cancel')
-            self.pushButton.setEnabled(False)
-            self.begin_export()
-        elif self.pushButton.text() == 'Cancel':
-            pass
-        elif self.pushButton.text() == 'OK':
-            if self._compute_cancelled:
-                self.reject()
-            else:
-                self.accept()
+    @pyqtSlot()
+    def on_openRASPushButton_clicked(self):
+        self._ras_controller.ShowRas()
+
+    @pyqtSlot()
+    def on_viewCrossSectionPushButton_clicked(self):
+
+        river_name = self.riverComboBox.currentText()
+        reach_name = self.reachComboBox.currentText()
+        river_station = self.riverStationComboBox.currentText()
+
+        self._ras_controller.PlotXS(river_name, reach_name, river_station)
+
+    @pyqtSlot()
+    def on_viewProfilePushButton_clicked(self):
+
+        river_name = self.riverComboBox.currentText()
+        reach_name = self.reachComboBox.currentText()
+
+        self._ras_controller.PlotPF(river_name, reach_name)

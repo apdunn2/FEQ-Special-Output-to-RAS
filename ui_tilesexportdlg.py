@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'feqrasexportdlg.ui'
+# Form implementation generated from reading ui file 'tilesexportdlg.ui'
 #
 # Created by: PyQt5 UI code generator 5.6
 #
@@ -8,14 +8,14 @@
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
-class Ui_FEQRASExportDlg(object):
-    def setupUi(self, FEQRASExportDlg):
-        FEQRASExportDlg.setObjectName("FEQRASExportDlg")
-        FEQRASExportDlg.setEnabled(True)
-        FEQRASExportDlg.resize(401, 300)
-        self.verticalLayout = QtWidgets.QVBoxLayout(FEQRASExportDlg)
+class Ui_TilesExportDlg(object):
+    def setupUi(self, TilesExportDlg):
+        TilesExportDlg.setObjectName("TilesExportDlg")
+        TilesExportDlg.setEnabled(True)
+        TilesExportDlg.resize(401, 300)
+        self.verticalLayout = QtWidgets.QVBoxLayout(TilesExportDlg)
         self.verticalLayout.setObjectName("verticalLayout")
-        self.computeMessageTextEdit = QtWidgets.QTextEdit(FEQRASExportDlg)
+        self.computeMessageTextEdit = QtWidgets.QTextEdit(TilesExportDlg)
         self.computeMessageTextEdit.setReadOnly(True)
         self.computeMessageTextEdit.setObjectName("computeMessageTextEdit")
         self.verticalLayout.addWidget(self.computeMessageTextEdit)
@@ -23,7 +23,7 @@ class Ui_FEQRASExportDlg(object):
         self.horizontalLayout.setObjectName("horizontalLayout")
         spacerItem = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
         self.horizontalLayout.addItem(spacerItem)
-        self.pushButton = QtWidgets.QPushButton(FEQRASExportDlg)
+        self.pushButton = QtWidgets.QPushButton(TilesExportDlg)
         self.pushButton.setEnabled(True)
         self.pushButton.setFocusPolicy(QtCore.Qt.ClickFocus)
         self.pushButton.setObjectName("pushButton")
@@ -32,11 +32,11 @@ class Ui_FEQRASExportDlg(object):
         self.horizontalLayout.addItem(spacerItem1)
         self.verticalLayout.addLayout(self.horizontalLayout)
 
-        self.retranslateUi(FEQRASExportDlg)
-        QtCore.QMetaObject.connectSlotsByName(FEQRASExportDlg)
+        self.retranslateUi(TilesExportDlg)
+        QtCore.QMetaObject.connectSlotsByName(TilesExportDlg)
 
-    def retranslateUi(self, FEQRASExportDlg):
+    def retranslateUi(self, TilesExportDlg):
         _translate = QtCore.QCoreApplication.translate
-        FEQRASExportDlg.setWindowTitle(_translate("FEQRASExportDlg", "Export Tiles"))
-        self.pushButton.setText(_translate("FEQRASExportDlg", "Begin Export"))
+        TilesExportDlg.setWindowTitle(_translate("TilesExportDlg", "Export Tiles"))
+        self.pushButton.setText(_translate("TilesExportDlg", "Begin Export"))
 
