@@ -4,6 +4,7 @@ import time
 
 import pandas as pd
 import yaml
+import win32com # not exactly sure why, but Qt throws an initialization error if this isn't imported
 
 from PyQt5.QtCore import pyqtSlot, Qt, QCoreApplication
 from PyQt5.QtWidgets import QDialog, QDialogButtonBox, QFileDialog, QMainWindow, QMessageBox
